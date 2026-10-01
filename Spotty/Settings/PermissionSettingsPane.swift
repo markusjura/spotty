@@ -1,0 +1,52 @@
+import ApplicationServices
+import ServiceManagement
+import SwiftUI
+
+/// Status is read on appearance and whenever Spotty becomes active after a System Settings visit.
+struct PermissionSettingsPane: View {
+    let commands: CommandRegistry
+    let inputTap: InputTap
+    @State private var loginStatus = SMAppService.mainApp.status
+
+    var body: some View {
+        Form {
+            Section("Accessibility") {
+                LabeledContent("Status") {
+                    Label(inputTap.isTrusted ? "Allowed" : "Not allowed",
+                          systemImage: inputTap.isTrusted ? "checkmark.circle.fill" : "xmark.circle")
+                        .foregroundStyle(inputTap.isTrusted ? Color.primary : Color.secondary)
+                }
+                Text("Needed only for modifier-only shortcuts, such as holding ⌃⇧, and for mouse button shortcuts. Shortcuts with a key work without it.")
+                    .secondaryNote()
+                if !inputTap.isTrusted {
+                    HStack {
+                        Button("Request Access") { inputTap.requestAccess() }
+                        Button("Open System Settings") { SystemSettingsLink.open(SystemSettingsLink.accessibility) }
+                    }
+                }
+            }
+            Section("Login item") {
+                LabeledContent("Status", value: loginStatus.summary)
+                if loginStatus == .requiresApproval {
+                    Button("Open Login Items Settings") { SMAppService.openSystemSettingsLoginItems() }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            inputTap.refreshTrust()
+            loginStatus = SMAppService.mainApp.status
+        }
+    }
+}
+
+private extension SMAppService.Status {
+    var summary: String {
+        switch self {
+        case .enabled: "Opens at login"
+        case .requiresApproval: "Waiting for approval in System Settings"
+        case .notRegistered: "Off"
+        case .notFound: "Unavailable for this copy of Spotty"
+        @unknown default: "Unknown"
+        }
+    }
+}

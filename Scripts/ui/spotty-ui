@@ -1,0 +1,10 @@
+#!/bin/zsh
+# UI verification helper for Spotty. Compiles once into .build. Run without arguments for usage.
+set -euo pipefail
+dir=${0:A:h}
+binary=${dir:h:h}/.build/spotty-ui
+if [[ ! -x $binary || $dir/SpottyUI.swift -nt $binary ]]; then
+  mkdir -p ${binary:h}
+  swiftc -O $dir/SpottyUI.swift -o $binary
+fi
+exec $binary "$@"

@@ -29,22 +29,22 @@ final class DrawingController {
     func handle(_ event: TriggerEvent) {
         Self.log.debug("\(String(describing: event), privacy: .public)")
         switch event {
-        case .pressed(let command):
-            switch command.scope {
+        case .pressed(let slot):
+            switch slot.command.scope {
             case .drawing:
                 let startTool = preferences.drawing.resolvedStartTool
-                update { $0.pressed(command, at: ProcessInfo.processInfo.systemUptime, startTool: startTool) }
-            case .action: perform(command)
+                update { $0.pressed(slot, at: ProcessInfo.processInfo.systemUptime, startTool: startTool) }
+            case .action: perform(slot.command)
             case .overlay: break
             }
-        case .released(let command):
+        case .released(let slot):
             // Finish a button-drawn mark first, so the release counts as a hold that drew.
             overlay.endPointerMark()
-            update { $0.released(command, at: ProcessInfo.processInfo.systemUptime) }
-        case .interrupted(let command):
-            update { $0.interrupted(command) }
-        case .dragged(let command, let location):
-            guard session.heldCommand == command, isDrawing else { return }
+            update { $0.released(slot, at: ProcessInfo.processInfo.systemUptime) }
+        case .interrupted(let slot):
+            update { $0.interrupted(slot) }
+        case .dragged(let slot, let location):
+            guard session.heldSlot == slot, isDrawing else { return }
             overlay.dragPointerMark(to: location)
         }
     }
@@ -92,7 +92,7 @@ final class DrawingController {
     /// toggled on and the plain tool letters switch tools. A held key chord leaves keys with the
     /// app you are working in.
     private var isHoldingMouseButton: Bool {
-        session.heldCommand.flatMap(commands.shortcut(for:))?.mouseButton != nil
+        session.heldSlot.flatMap(commands.shortcut(for:))?.mouseButton != nil
     }
 
     private static let log = Logger(subsystem: "local.markus.Spotty", category: "drawing")
@@ -100,7 +100,7 @@ final class DrawingController {
     private var markStyle: MarkStyle {
         let drawing = preferences.drawing
         // Shift draws straight lines and squares, unless it is part of the held shortcut.
-        let held = session.heldCommand.flatMap(commands.shortcut(for:))
+        let held = session.heldSlot.flatMap(commands.shortcut(for:))
         return MarkStyle(tool: session.tool, color: drawing.color, highlighterColor: drawing.highlighterColor,
                          width: drawing.lineWidth, dimming: drawing.spotlightDimming / 100,
                          shiftConstrains: !(held?.modifiers.contains(.shift) ?? false))

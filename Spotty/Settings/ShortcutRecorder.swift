@@ -8,20 +8,21 @@ import SwiftUI
 /// suspends global shortcuts meanwhile, so existing bindings can be re-recorded.
 struct ShortcutRecorder: NSViewRepresentable {
     let commands: CommandRegistry
-    let command: CommandID
+    let slot: ShortcutSlot
     let onResult: (ShortcutProblem?) -> Void
 
     func makeNSView(context: Context) -> ShortcutRecorderButton { ShortcutRecorderButton() }
 
     func updateNSView(_ button: ShortcutRecorderButton, context: Context) {
-        button.commandTitle = command.title
-        button.shortcut = commands.shortcut(for: command)
-        button.onRecordingChange = { [commands, command] isRecording in
-            if isRecording { commands.recordingCommand = command }
-            else if commands.recordingCommand == command { commands.recordingCommand = nil }
+        button.commandTitle = slot.index == 0 ? slot.command.title : "\(slot.command.title) second"
+        button.placeholder = slot.index == 0 ? "Record Shortcut" : "Add Shortcut"
+        button.shortcut = commands.shortcut(for: slot)
+        button.onRecordingChange = { [commands, slot] isRecording in
+            if isRecording { commands.recordingCommand = slot.command }
+            else if commands.recordingCommand == slot.command { commands.recordingCommand = nil }
         }
-        button.onRecord = { [commands, command, onResult] shortcut in
-            onResult(commands.assign(shortcut, to: command))
+        button.onRecord = { [commands, slot, onResult] shortcut in
+            onResult(commands.assign(shortcut, to: slot))
         }
     }
 
@@ -32,6 +33,7 @@ final class ShortcutRecorderButton: NSButton {
     var onRecord: ((Shortcut?) -> Void)?
     var onRecordingChange: ((Bool) -> Void)?
     var commandTitle = "" { didSet { refresh() } }
+    var placeholder = "Record Shortcut" { didSet { if placeholder != oldValue { refresh() } } }
     var shortcut: Shortcut? { didSet { if shortcut != oldValue { refresh() } } }
     private var isRecording = false
     private var resignObservation: NSObjectProtocol?
@@ -140,7 +142,7 @@ final class ShortcutRecorderButton: NSButton {
         if isRecording {
             value = liveModifiers.isEmpty ? "Type Shortcut…" : Shortcut.symbols(liveModifiers) + "…"
         } else {
-            value = shortcut?.displayString ?? "Record Shortcut"
+            value = shortcut?.displayString ?? placeholder
         }
         title = value
         setAccessibilityLabel("\(commandTitle) shortcut")

@@ -13,7 +13,7 @@ final class GlobalHotKeyCenter {
     private let registry: CommandRegistry
     private let handler: @MainActor (TriggerEvent) -> Void
     private var eventHandler: EventHandlerRef?
-    private var registered: [UInt32: (command: CommandID, reference: EventHotKeyRef)] = [:]
+    private var registered: [UInt32: (slot: ShortcutSlot, reference: EventHotKeyRef)] = [:]
     /// Carbon repeats presses while a key is held; only the first one counts.
     private var held: Set<UInt32> = []
     private var layoutObserver: NSObjectProtocol?
@@ -70,13 +70,13 @@ final class GlobalHotKeyCenter {
     }
 
     private func fire(_ identifier: UInt32, isPress: Bool) {
-        guard let command = registered[identifier]?.command else { return }
+        guard let slot = registered[identifier]?.slot else { return }
         if isPress {
             guard held.insert(identifier).inserted else { return }
-            handler(.pressed(command))
+            handler(.pressed(slot))
         } else {
             guard held.remove(identifier) != nil else { return }
-            handler(.released(command))
+            handler(.released(slot))
         }
     }
 
@@ -89,21 +89,21 @@ final class GlobalHotKeyCenter {
             Task { @MainActor in self?.synchronize() }
         }
         // A key held across re-registration would never report its release; end it now.
-        for identifier in held { if let command = registered[identifier]?.command { handler(.released(command)) } }
+        for identifier in held { if let slot = registered[identifier]?.slot { handler(.released(slot)) } }
         held.removeAll()
         unregisterAll()
-        var failures: Set<CommandID> = []
-        for (index, command) in CommandID.allCases.enumerated() {
-            guard let shortcut = bindings[command], let keyCode = shortcut.keyCode else { continue }
+        var failures: Set<ShortcutSlot> = []
+        for (index, slot) in CommandID.allCases.flatMap(\.slots).enumerated() {
+            guard let shortcut = bindings[slot], let keyCode = shortcut.keyCode else { continue }
             let identifier = UInt32(index + 1)
             var reference: EventHotKeyRef?
             let status = RegisterEventHotKey(UInt32(keyCode), shortcut.carbonModifiers,
                                              EventHotKeyID(signature: Self.signature, id: identifier),
                                              GetApplicationEventTarget(), 0, &reference)
             if status == noErr, let reference {
-                registered[identifier] = (command, reference)
+                registered[identifier] = (slot, reference)
             } else {
-                failures.insert(command)
+                failures.insert(slot)
             }
         }
         // Suspension during recording is not a failure; keep the last real result.

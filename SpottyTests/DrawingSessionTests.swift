@@ -7,53 +7,53 @@ final class DrawingSessionTests: XCTestCase {
 
     func testHoldingDrawsUntilRelease() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.drawArrow, at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.drawArrow), at: 0, startTool: .pen)
         XCTAssertEqual(session.mode, .holding)
         XCTAssertEqual(session.tool, .arrow)
-        session.released(.drawArrow, at: long)
+        session.released(ShortcutSlot(.drawArrow), at: long)
         XCTAssertEqual(session.mode, .off)
     }
 
     func testTapTogglesOnAndASecondTapTogglesOff() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.draw, at: 0, startTool: .highlighter)
-        session.released(.draw, at: quick)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .highlighter)
+        session.released(ShortcutSlot(.draw), at: quick)
         XCTAssertEqual(session.mode, .latched)
         XCTAssertEqual(session.tool, .highlighter, "Draw starts with the start tool")
 
-        session.pressed(.draw, at: 1, startTool: .highlighter)
-        session.released(.draw, at: 1 + quick)
+        session.pressed(ShortcutSlot(.draw), at: 1, startTool: .highlighter)
+        session.released(ShortcutSlot(.draw), at: 1 + quick)
         XCTAssertEqual(session.mode, .off)
     }
 
     func testAQuickPressThatDrewIsAHold() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.draw, at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
         session.didDraw()
-        session.released(.draw, at: quick)
+        session.released(ShortcutSlot(.draw), at: quick)
         XCTAssertEqual(session.mode, .off)
     }
 
     /// Hold ⌃⇧, press A for the arrow, draw, let go of everything.
     func testASecondShortcutWhileHoldingSwitchesToolsAndTheFirstOneEndsIt() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.draw, at: 0, startTool: .pen)
-        session.pressed(.drawArrow, at: 0.5, startTool: .pen)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.drawArrow), at: 0.5, startTool: .pen)
         XCTAssertEqual(session.tool, .arrow)
-        session.released(.drawArrow, at: 0.6)
+        session.released(ShortcutSlot(.drawArrow), at: 0.6)
         XCTAssertEqual(session.mode, .holding, "Only the first shortcut of a gesture ends it")
         session.didDraw()
-        session.released(.draw, at: 2)
+        session.released(ShortcutSlot(.draw), at: 2)
         XCTAssertEqual(session.mode, .off)
     }
 
     /// A quick ⌃⇧A tap with ⌃⇧ itself bound to Draw toggles the arrow on.
     func testAQuickChordTogglesOnWithTheChosenTool() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.draw, at: 0, startTool: .pen)
-        session.pressed(.drawArrow, at: 0.05, startTool: .pen)
-        session.released(.drawArrow, at: 0.1)
-        session.released(.draw, at: quick)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.drawArrow), at: 0.05, startTool: .pen)
+        session.released(ShortcutSlot(.drawArrow), at: 0.1)
+        session.released(ShortcutSlot(.draw), at: quick)
         XCTAssertEqual(session.mode, .latched)
         XCTAssertEqual(session.tool, .arrow)
     }
@@ -64,42 +64,42 @@ final class DrawingSessionTests: XCTestCase {
         XCTAssertEqual(session.mode, .latched)
 
         // ⌃⇧ then A, quickly: switches instead of turning off.
-        session.pressed(.draw, at: 0, startTool: .pen)
-        session.pressed(.drawArrow, at: 0.05, startTool: .pen)
-        session.released(.drawArrow, at: 0.1)
-        session.released(.draw, at: quick)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.drawArrow), at: 0.05, startTool: .pen)
+        session.released(ShortcutSlot(.drawArrow), at: 0.1)
+        session.released(ShortcutSlot(.draw), at: quick)
         XCTAssertEqual(session.mode, .latched)
         XCTAssertEqual(session.tool, .arrow)
 
-        session.pressed(.drawArrow, at: 1, startTool: .pen)
-        session.released(.drawArrow, at: 1 + quick)
+        session.pressed(ShortcutSlot(.drawArrow), at: 1, startTool: .pen)
+        session.released(ShortcutSlot(.drawArrow), at: 1 + quick)
         XCTAssertEqual(session.mode, .off)
     }
 
     func testHoldingWhileToggledOnKeepsDrawingOn() {
         var session = DrawingSession(tool: .pen)
         session.toggle(.pen)
-        session.pressed(.draw, at: 0, startTool: .pen)
-        session.released(.draw, at: long)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
+        session.released(ShortcutSlot(.draw), at: long)
         XCTAssertEqual(session.mode, .latched)
     }
 
     func testAnInterruptedChordEndsHeldDrawingWithoutToggling() {
         var session = DrawingSession(tool: .pen)
-        session.pressed(.draw, at: 0, startTool: .pen)
-        session.interrupted(.draw)
+        session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)
+        session.interrupted(ShortcutSlot(.draw))
         XCTAssertEqual(session.mode, .off)
-        session.released(.draw, at: quick)
+        session.released(ShortcutSlot(.draw), at: quick)
         XCTAssertEqual(session.mode, .off)
     }
 
     func testRepeatedPressesAndStrayReleasesAreIgnored() {
         var session = DrawingSession(tool: .pen)
-        session.released(.draw, at: 0)
+        session.released(ShortcutSlot(.draw), at: 0)
         XCTAssertEqual(session.mode, .off)
-        session.pressed(.drawPen, at: 0, startTool: .pen)
-        session.pressed(.drawPen, at: 0.2, startTool: .pen)
-        session.released(.drawPen, at: 0.25)
+        session.pressed(ShortcutSlot(.drawPen), at: 0, startTool: .pen)
+        session.pressed(ShortcutSlot(.drawPen), at: 0.2, startTool: .pen)
+        session.released(ShortcutSlot(.drawPen), at: 0.25)
         XCTAssertEqual(session.mode, .latched, "A repeated press does not restart the tap timer")
     }
 }

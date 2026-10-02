@@ -27,7 +27,7 @@ struct DrawingSession: Equatable, Sendable {
     private var press: Press?
 
     private struct Press: Equatable, Sendable {
-        let command: CommandID
+        let slot: ShortcutSlot
         let start: TimeInterval
         var drew = false
         var switchedTool = false
@@ -40,29 +40,29 @@ struct DrawingSession: Equatable, Sendable {
     var isActive: Bool { mode != .off }
 
     /// The shortcut held for the current gesture, if any.
-    var heldCommand: CommandID? { press?.command }
+    var heldSlot: ShortcutSlot? { press?.slot }
 
     /// `startTool` is the tool for `.draw`, which names no tool itself.
-    mutating func pressed(_ command: CommandID, at time: TimeInterval, startTool: DrawingTool) {
-        guard press?.command != command else { return }
+    mutating func pressed(_ slot: ShortcutSlot, at time: TimeInterval, startTool: DrawingTool) {
+        guard press?.slot != slot else { return }
         if press != nil {
-            switchTool(to: command.tool)
+            switchTool(to: slot.command.tool)
             return
         }
-        press = Press(command: command, start: time)
+        press = Press(slot: slot, start: time)
         switch mode {
         case .off:
             mode = .holding
-            tool = command.tool ?? startTool
+            tool = slot.command.tool ?? startTool
         case .latched:
-            switchTool(to: command.tool)
+            switchTool(to: slot.command.tool)
         case .holding:
             assertionFailure("Holding without a press")
         }
     }
 
-    mutating func released(_ command: CommandID, at time: TimeInterval) {
-        guard let press, press.command == command else { return }
+    mutating func released(_ slot: ShortcutSlot, at time: TimeInterval) {
+        guard let press, press.slot == slot else { return }
         self.press = nil
         let tapped = !press.drew && time - press.start < Self.tapInterval
         switch mode {
@@ -73,8 +73,8 @@ struct DrawingSession: Equatable, Sendable {
     }
 
     /// The held shortcut turned out to be part of another app's shortcut.
-    mutating func interrupted(_ command: CommandID) {
-        guard press?.command == command else { return }
+    mutating func interrupted(_ slot: ShortcutSlot) {
+        guard press?.slot == slot else { return }
         press = nil
         if mode == .holding { mode = .off }
     }

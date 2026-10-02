@@ -28,14 +28,13 @@ enum CommandGroup: CaseIterable, Sendable {
 
 /// Stable IDs; custom bindings persist by raw value.
 enum CommandID: String, CaseIterable, Codable, Sendable {
-    case draw, drawAlternate, drawPen, drawHighlighter, drawArrow, drawRectangle, drawEllipse, drawSpotlight
+    case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawEllipse, drawSpotlight
     case undo, clear
     case pickPen, pickHighlighter, pickArrow, pickRectangle, pickEllipse, pickSpotlight
 
     var title: String {
         switch self {
         case .draw: "Draw"
-        case .drawAlternate: "Draw (Alternate)"
         case .undo: "Undo Last Drawing"
         case .clear: "Clear Drawings"
         default: tool!.title
@@ -44,7 +43,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var group: CommandGroup {
         switch self {
-        case .draw, .drawAlternate, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawEllipse, .drawSpotlight: .drawing
+        case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawEllipse, .drawSpotlight: .drawing
         case .undo, .clear: .actions
         case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickEllipse, .pickSpotlight: .whileDrawing
         }
@@ -60,7 +59,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var isGlobal: Bool { scope != .overlay }
 
-    /// Nil for `draw` and `drawAlternate`, which start with the configured start tool, and for actions.
+    /// Nil for `draw`, which starts with the configured start tool, and for actions.
     var tool: DrawingTool? {
         switch self {
         case .drawPen, .pickPen: .pen
@@ -69,20 +68,21 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
         case .drawRectangle, .pickRectangle: .rectangle
         case .drawEllipse, .pickEllipse: .ellipse
         case .drawSpotlight, .pickSpotlight: .spotlight
-        case .draw, .drawAlternate, .undo, .clear: nil
+        case .draw, .undo, .clear: nil
         }
     }
+
+    /// Global commands take a second shortcut, so a mouse button and a key chord can both trigger them.
+    var slots: [ShortcutSlot] { (0..<(isGlobal ? 2 : 1)).map { ShortcutSlot(self, $0) } }
 
     static func draw(_ tool: DrawingTool) -> CommandID { allCases.first { $0.scope == .drawing && $0.tool == tool }! }
     static func pick(_ tool: DrawingTool) -> CommandID { allCases.first { $0.scope == .overlay && $0.tool == tool }! }
 
     /// Fresh-install bindings: hold ⌃⇧ to draw, add a letter to choose the tool. The same letters
-    /// pick tools while drawing is toggled on. The alternate Draw shortcut, typically a mouse
-    /// button, starts unassigned.
+    /// pick tools while drawing is toggled on.
     var defaultShortcut: Shortcut? {
         switch self {
         case .draw: return .modifiers([.control, .shift])
-        case .drawAlternate: return nil
         case .undo: return Shortcut(kVK_ANSI_Z, [.control, .shift])
         case .clear: return Shortcut(kVK_Delete, [.control, .shift])
         default:
@@ -95,6 +95,32 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
         .pen: kVK_ANSI_P, .highlighter: kVK_ANSI_H, .arrow: kVK_ANSI_A,
         .rectangle: kVK_ANSI_R, .ellipse: kVK_ANSI_O, .spotlight: kVK_ANSI_S,
     ]
+}
+
+/// One of a command's shortcuts. Only the first slot has a default.
+struct ShortcutSlot: Hashable, Sendable {
+    let command: CommandID
+    let index: Int
+
+    init(_ command: CommandID, _ index: Int = 0) {
+        self.command = command
+        self.index = index
+    }
+
+    var defaultShortcut: Shortcut? { index == 0 ? command.defaultShortcut : nil }
+
+    /// `draw` for the first slot and `draw.1` for the second, so first-slot overrides keep their old keys.
+    var storageKey: String { index == 0 ? command.rawValue : "\(command.rawValue).\(index)" }
+
+    init?(storageKey key: String) {
+        // Builds 3 and 4 stored Draw's second shortcut as a separate command.
+        if key == "drawAlternate" { self.init(.draw, 1); return }
+        let parts = key.split(separator: ".", maxSplits: 1)
+        guard let command = CommandID(rawValue: String(parts[0])) else { return nil }
+        let index = parts.count == 2 ? Int(parts[1]) : 0
+        guard let index, command.slots.indices.contains(index) else { return nil }
+        self.init(command, index)
+    }
 }
 
 enum ShortcutProblem: Error, Equatable, Sendable {
@@ -126,9 +152,9 @@ final class CommandRegistry {
     static let storageKey = "commands.v1.shortcuts"
 
     @ObservationIgnored private let defaults: UserDefaults
-    private(set) var bindings: [CommandID: Shortcut]
-    /// Global commands whose last registration failed, typically because another app owns the key.
-    private(set) var registrationFailures: Set<CommandID> = []
+    private(set) var bindings: [ShortcutSlot: Shortcut]
+    /// Global shortcuts whose last registration failed, typically because another app owns the key.
+    private(set) var registrationFailures: Set<ShortcutSlot> = []
     /// While set, global shortcuts are suspended so the recorder receives every combination.
     var recordingCommand: CommandID?
     private(set) var keyboardLayoutVersion = 0
@@ -138,52 +164,59 @@ final class CommandRegistry {
         bindings = Self.load(from: defaults)
     }
 
-    func shortcut(for id: CommandID) -> Shortcut? {
+    func shortcut(for slot: ShortcutSlot) -> Shortcut? {
         _ = keyboardLayoutVersion
-        return bindings[id]
+        return bindings[slot]
+    }
+
+    /// The shortcut to show for a command in menus and help: the first key shortcut, else the first one.
+    func shortcut(for id: CommandID) -> Shortcut? {
+        let shortcuts = id.slots.compactMap(shortcut(for:))
+        return shortcuts.first { $0.keyCode != nil } ?? shortcuts.first
     }
 
     /// Valid global bindings, suspended while recording.
-    var activeGlobalBindings: [CommandID: Shortcut] {
+    var activeGlobalBindings: [ShortcutSlot: Shortcut] {
         _ = keyboardLayoutVersion
         guard recordingCommand == nil else { return [:] }
-        return bindings.filter { $0.key.isGlobal && Self.ruleProblem($0.value, scope: $0.key.scope) == nil }
+        return bindings.filter { $0.key.command.isGlobal && Self.ruleProblem($0.value, scope: $0.key.command.scope) == nil }
     }
 
     /// Whether any binding needs the Accessibility event tap.
-    var needsEventTap: Bool { bindings.contains { $0.key.isGlobal && $0.value.needsEventTap } }
+    var needsEventTap: Bool { bindings.contains { $0.key.command.isGlobal && $0.value.needsEventTap } }
 
-    /// Nil when `shortcut` may be assigned to `id`.
-    func problem(assigning shortcut: Shortcut, to id: CommandID) -> ShortcutProblem? {
-        if let rule = Self.ruleProblem(shortcut, scope: id.scope) { return rule }
-        if let other = bindings.first(where: { $0.key != id && $0.value == shortcut })?.key { return .conflict(other) }
+    /// Nil when `shortcut` may be assigned to `slot`.
+    func problem(assigning shortcut: Shortcut, to slot: ShortcutSlot) -> ShortcutProblem? {
+        if let rule = Self.ruleProblem(shortcut, scope: slot.command.scope) { return rule }
+        if let other = bindings.first(where: { $0.key != slot && $0.value == shortcut })?.key { return .conflict(other.command) }
         return nil
     }
 
     /// Applies the binding, or leaves everything unchanged and returns why not. Nil clears.
     @discardableResult
-    func assign(_ shortcut: Shortcut?, to id: CommandID) -> ShortcutProblem? {
+    func assign(_ shortcut: Shortcut?, to slot: ShortcutSlot) -> ShortcutProblem? {
         guard let shortcut else {
-            guard bindings[id] != nil else { return nil }
-            bindings[id] = nil
+            guard bindings[slot] != nil else { return nil }
+            bindings[slot] = nil
             save()
             return nil
         }
-        if let problem = problem(assigning: shortcut, to: id) { return problem }
-        guard bindings[id] != shortcut else { return nil }
-        bindings[id] = shortcut
+        if let problem = problem(assigning: shortcut, to: slot) { return problem }
+        guard bindings[slot] != shortcut else { return nil }
+        bindings[slot] = shortcut
         save()
         return nil
     }
 
     /// Clears the group first so bindings swapped within it restore cleanly.
     @discardableResult
-    func restoreDefaults(in group: CommandGroup) -> [CommandID: ShortcutProblem] {
-        for id in group.commands { bindings[id] = nil }
-        var problems: [CommandID: ShortcutProblem] = [:]
-        for id in group.commands {
-            guard let shortcut = id.defaultShortcut else { continue }
-            if let problem = problem(assigning: shortcut, to: id) { problems[id] = problem } else { bindings[id] = shortcut }
+    func restoreDefaults(in group: CommandGroup) -> [ShortcutSlot: ShortcutProblem] {
+        let slots = group.commands.flatMap(\.slots)
+        for slot in slots { bindings[slot] = nil }
+        var problems: [ShortcutSlot: ShortcutProblem] = [:]
+        for slot in slots {
+            guard let shortcut = slot.defaultShortcut else { continue }
+            if let problem = problem(assigning: shortcut, to: slot) { problems[slot] = problem } else { bindings[slot] = shortcut }
         }
         save()
         return problems
@@ -191,12 +224,12 @@ final class CommandRegistry {
 
     /// The overlay command for a key pressed while drawing is toggled on.
     func overlayCommand(matching shortcut: Shortcut) -> CommandID? {
-        bindings.first { $0.key.scope == .overlay && $0.value == shortcut }?.key
+        bindings.first { $0.key.command.scope == .overlay && $0.value == shortcut }?.key.command
     }
 
     func keyboardLayoutDidChange() { keyboardLayoutVersion &+= 1 }
 
-    func reportRegistration(failures: Set<CommandID>) {
+    func reportRegistration(failures: Set<ShortcutSlot>) {
         if registrationFailures != failures { registrationFailures = failures }
     }
 
@@ -253,8 +286,8 @@ final class CommandRegistry {
     /// Stores only differences from defaults, so improved defaults reach users who never customized.
     private func save() {
         var overrides: [String: Shortcut?] = [:]
-        for id in CommandID.allCases where bindings[id] != id.defaultShortcut {
-            overrides[id.rawValue] = .some(bindings[id])
+        for slot in Self.allSlots where bindings[slot] != slot.defaultShortcut {
+            overrides[slot.storageKey] = .some(bindings[slot])
         }
         guard let data = try? JSONEncoder().encode(overrides) else { return assertionFailure("Unencodable shortcuts") }
         defaults.set(data, forKey: Self.storageKey)
@@ -262,23 +295,26 @@ final class CommandRegistry {
 
     /// Overrides win over defaults on duplicates; invalid entries fall back to the default when it
     /// still fits, otherwise to unassigned.
-    private static func load(from defaults: UserDefaults) -> [CommandID: Shortcut] {
+    private static func load(from defaults: UserDefaults) -> [ShortcutSlot: Shortcut] {
         let stored = defaults.data(forKey: storageKey)
             .flatMap { try? JSONDecoder().decode([String: Shortcut?].self, from: $0) } ?? [:]
-        let overrides = Dictionary(uniqueKeysWithValues: stored.compactMap { key, value in CommandID(rawValue: key).map { ($0, value) } })
-        var result: [CommandID: Shortcut] = [:]
-        let customized = CommandID.allCases.filter { overrides.keys.contains($0) }
-        for id in customized + CommandID.allCases.filter({ !overrides.keys.contains($0) }) {
-            // An explicitly cleared command stays unassigned.
-            let candidates: [Shortcut] = if let override = overrides[id] {
-                override.map { [$0] + [id.defaultShortcut].compactMap { $0 } } ?? []
+        let overrides = Dictionary(stored.compactMap { key, value in ShortcutSlot(storageKey: key).map { ($0, value) } },
+                                   uniquingKeysWith: { first, _ in first })
+        var result: [ShortcutSlot: Shortcut] = [:]
+        let customized = allSlots.filter { overrides.keys.contains($0) }
+        for slot in customized + allSlots.filter({ !overrides.keys.contains($0) }) {
+            // An explicitly cleared slot stays unassigned.
+            let candidates: [Shortcut] = if let override = overrides[slot] {
+                override.map { [$0] + [slot.defaultShortcut].compactMap { $0 } } ?? []
             } else {
-                [id.defaultShortcut].compactMap { $0 }
+                [slot.defaultShortcut].compactMap { $0 }
             }
-            if let shortcut = candidates.first(where: { ruleProblem($0, scope: id.scope) == nil && !result.values.contains($0) }) {
-                result[id] = shortcut
+            if let shortcut = candidates.first(where: { ruleProblem($0, scope: slot.command.scope) == nil && !result.values.contains($0) }) {
+                result[slot] = shortcut
             }
         }
         return result
     }
+
+    private static let allSlots = CommandID.allCases.flatMap(\.slots)
 }

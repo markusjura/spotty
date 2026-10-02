@@ -16,12 +16,12 @@ final class InputTap {
     @ObservationIgnored private let handler: @MainActor (TriggerEvent) -> Void
     @ObservationIgnored private var tap: CFMachPort?
     @ObservationIgnored private var source: CFRunLoopSource?
-    @ObservationIgnored private var bindings: [CommandID: Shortcut] = [:]
+    @ObservationIgnored private var bindings: [ShortcutSlot: Shortcut] = [:]
     /// The modifier-only chord currently held exactly.
-    @ObservationIgnored private var heldChord: CommandID?
+    @ObservationIgnored private var heldChord: ShortcutSlot?
     @ObservationIgnored private var lastModifiers: Shortcut.Modifiers = []
     /// Mouse buttons whose press was reported and swallowed, so their release is too.
-    @ObservationIgnored private var heldButtons: [Int: CommandID] = [:]
+    @ObservationIgnored private var heldButtons: [Int: ShortcutSlot] = [:]
     @ObservationIgnored private var trustObserver: NSObjectProtocol?
 
     init(registry: CommandRegistry, handler: @escaping @MainActor (TriggerEvent) -> Void) {
@@ -106,7 +106,7 @@ final class InputTap {
     /// Ends anything held when bindings change mid-press.
     private func endHeld() {
         if let heldChord { handler(.released(heldChord)) }
-        for command in heldButtons.values { handler(.released(command)) }
+        for slot in heldButtons.values { handler(.released(slot)) }
         heldChord = nil
         heldButtons.removeAll()
     }
@@ -135,20 +135,20 @@ final class InputTap {
         case .otherMouseDown:
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
             let pressed = Shortcut.mouse(button, Shortcut.Modifiers(flags: event.flags))
-            guard let command = bindings.first(where: { $0.value == pressed })?.key else { return false }
-            heldButtons[button] = command
-            handler(.pressed(command))
+            guard let slot = bindings.first(where: { $0.value == pressed })?.key else { return false }
+            heldButtons[button] = slot
+            handler(.pressed(slot))
             return true
         case .otherMouseDragged:
             // Moving with a bound button held draws, so the button works on its own, without a left drag.
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-            guard let command = heldButtons[button] else { return false }
-            handler(.dragged(command, event.location))
+            guard let slot = heldButtons[button] else { return false }
+            handler(.dragged(slot, event.location))
             return true
         case .otherMouseUp:
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-            guard let command = heldButtons.removeValue(forKey: button) else { return false }
-            handler(.released(command))
+            guard let slot = heldButtons.removeValue(forKey: button) else { return false }
+            handler(.released(slot))
             return true
         default:
             return false
@@ -167,8 +167,8 @@ final class InputTap {
             return
         }
         guard heldChord == nil, previous.isStrictSubset(of: modifiers),
-              let command = bindings.first(where: { $0.value == .modifiers(modifiers) })?.key else { return }
-        heldChord = command
-        handler(.pressed(command))
+              let slot = bindings.first(where: { $0.value == .modifiers(modifiers) })?.key else { return }
+        heldChord = slot
+        handler(.pressed(slot))
     }
 }

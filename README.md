@@ -14,14 +14,13 @@ The defaults, all changeable in Settings > Shortcuts:
 | Shortcut | Action |
 |----------|--------|
 | ⌃⇧ | Draw with the last used tool, or the start tool set in Settings > Drawing |
-| None | A second Draw shortcut, such as a mouse button, alongside the keyboard one |
 | ⌃⇧P, ⌃⇧H, ⌃⇧A, ⌃⇧R, ⌃⇧O, ⌃⇧S | Draw with the pen, highlighter, arrow, rectangle, ellipse, or spotlight |
 | ⌃⇧Z | Undo the last drawing |
 | ⌃⇧⌫ | Clear all drawings |
 
 While holding one drawing shortcut, press another to switch tools: hold ⌃⇧, press A, and drag an arrow. Holding a mouse button shortcut and moving the mouse draws, no left click needed. While holding it, the plain letters P, H, A, R, O, and S switch tools, because your hand is off the modifiers. While drawing is toggled on, the plain letters P, H, A, R, O, and S pick tools, ⌘Z or Delete removes the last drawing, ⌘⌫ clears everything, and a toolbar at the top of the screen offers the tools and colors. Shift draws straight lines, 45° arrows, squares, and circles, unless Shift is part of the shortcut you are holding.
 
-A shortcut can be a key with modifiers, a function key on its own (handy for mouse buttons remapped to F13 to F20), two or more modifiers alone, or a middle or side mouse button. Spotty swallows a bound mouse button, so binding Mouse 4 never also means Back in your browser.
+Every drawing shortcut and action takes a second shortcut, so a mouse button can sit beside a key chord. A shortcut can be a key with modifiers, a function key on its own (handy for mouse buttons remapped to F13 to F20), two or more modifiers alone, or a middle or side mouse button. Spotty swallows a bound mouse button, so binding Mouse 4 never also means Back in your browser.
 
 Highlighter strokes that are nearly straight snap to a straight line, so highlighting a line of text with a mouse looks clean. Spotlights dim everything else on that display.
 

@@ -127,18 +127,19 @@ private struct ToolButton: View {
     }
 }
 
-/// The ink color, or the highlighter color while the highlighter is active. An AppKit menu,
-/// because macOS 27 hides the swatch images of SwiftUI menu items.
+/// The current tool's color. An AppKit menu, because macOS 27 hides the swatch images of SwiftUI
+/// menu items.
 private struct ColorMenu: View {
     let controller: DrawingController
 
     var body: some View {
-        let highlighter = controller.session.tool == .highlighter
-        let key: WritableKeyPath<DrawingPreferences, RGBAColor> = highlighter ? \.highlighterColor : \.color
+        let tool = controller.session.tool
+        let highlighter = tool == .highlighter
+        let current = controller.preferences.drawing.style(for: tool).color
         Button {
-            ColorMenuTarget.popUp(current: controller.preferences.drawing[keyPath: key]) { controller.preferences.drawing[keyPath: key] = $0 }
+            ColorMenuTarget.popUp(current: current) { controller.preferences.drawing.setColor($0, for: tool) }
         } label: {
-            ColorDot(color: controller.preferences.drawing[keyPath: key], size: 14)
+            ColorDot(color: current, size: 14)
         }
         .buttonStyle(BarButtonStyle(width: 36))
         .help(highlighter ? "Highlighter color" : "Color")

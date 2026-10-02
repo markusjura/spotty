@@ -1,5 +1,5 @@
 /// The drawing tools, in toolbar and menu order.
-enum DrawingTool: String, Codable, CaseIterable, Sendable {
+enum DrawingTool: String, Codable, CodingKeyRepresentable, CaseIterable, Sendable {
     case pen, highlighter, arrow, rectangle, spotlight
 
     var title: String {

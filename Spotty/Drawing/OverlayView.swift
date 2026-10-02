@@ -4,8 +4,8 @@ import QuartzCore
 /// What a new mark looks like, read when a drag starts.
 struct MarkStyle: Equatable {
     var tool: DrawingTool
+    /// The tool's color, opaque. Highlighters draw it translucent.
     var color: RGBAColor
-    var highlighterColor: RGBAColor
     var width: CGFloat
     var cornerRadius: CGFloat
     /// Spotlight dimming, 0...1.
@@ -103,7 +103,7 @@ final class OverlayView: NSView {
     func beginMark(at point: CGPoint, shift: Bool) {
         guard let style = style() else { return }
         finishLive()
-        let color = style.tool == .highlighter ? style.highlighterColor.withAlpha(0.4) : style.color
+        let color = style.tool == .highlighter ? style.color.withAlpha(0.4) : style.color
         let mark = Mark(tool: style.tool, at: point, color: color, width: style.width, cornerRadius: style.cornerRadius)
         let layer = CAShapeLayer()
         layer.lineCap = .round
@@ -153,7 +153,7 @@ final class OverlayView: NSView {
             item.layer.path = item.mark.isEmpty ? nil : shape.path
             item.layer.fillColor = shape.filled ? item.mark.color.cgColor : nil
             item.layer.strokeColor = shape.filled ? nil : item.mark.color.cgColor
-            item.layer.lineWidth = item.mark.strokeWidth
+            item.layer.lineWidth = item.mark.width
         }
     }
 

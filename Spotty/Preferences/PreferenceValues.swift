@@ -63,9 +63,26 @@ struct RGBAColor: Codable, Hashable, Sendable {
     }
 }
 
+/// Values one tool sets apart from the default style. Nil follows the default style.
+struct StyleOverrides: Codable, Hashable, Sendable {
+    var color: RGBAColor?
+    var width: Double?
+    var cornerRadius: Double?
+
+    var isEmpty: Bool { self == StyleOverrides() }
+}
+
+/// The look of a tool's new marks, with its overrides applied over the default style.
+struct ToolStyle: Equatable, Sendable {
+    var color: RGBAColor
+    var width: Double
+    var cornerRadius: Double
+}
+
 struct DrawingPreferences: Codable, Equatable, Sendable {
-    static let widthPresets: [Double] = [3, 4, 6, 8, 10, 14]
-    static let cornerRadiusPresets: [Double] = [0, 4, 8, 12, 16, 24]
+    static let widthRange = 1.0...24.0
+    static let highlighterWidthRange = 4.0...48.0
+    static let cornerRadiusRange = 0.0...40.0
     static let dimmingRange = 20.0...80.0
     static let fadeDelayRange = 0.5...600.0
 
@@ -73,24 +90,60 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var startTool: DrawingTool?
     /// Remembered across launches for `startTool == nil`.
     var lastTool = DrawingTool.highlighter
-    /// Pen, arrow, and rectangle.
+
+    // The default style. Pen, arrow, and rectangle use all of it; spotlights use the corner radius.
     var color = RGBAColor.annotationRed
-    /// Drawn translucent, like a marker.
-    var highlighterColor = RGBAColor.highlighterYellow
     var lineWidth = 4.0
-    /// Rectangle and spotlight corners, in points. Zero draws hard corners.
+    /// In points. Zero draws hard corners.
     var cornerRadius = 0.0
+    /// Pen, arrow, rectangle, and spotlight values that differ from the default style.
+    var overrides: [DrawingTool: StyleOverrides] = [:]
+
+    /// The highlighter has its own style, drawn translucent like a marker.
+    var highlighterColor = RGBAColor.highlighterYellow
+    var highlighterWidth = 16.0
     /// How dark the screen gets around spotlights, in percent.
     var spotlightDimming = 50.0
+
     /// Off keeps drawings until cleared.
     var fadesDrawings = true
     /// Seconds each drawing stays after you finish it.
     var fadeDelay = 2.0
 
     var isValid: Bool {
-        color.isValid && highlighterColor.isValid && Self.widthPresets.contains(lineWidth)
-            && Self.cornerRadiusPresets.contains(cornerRadius)
+        color.isValid && highlighterColor.isValid && Self.widthRange.contains(lineWidth)
+            && Self.highlighterWidthRange.contains(highlighterWidth) && Self.cornerRadiusRange.contains(cornerRadius)
+            && overrides.values.allSatisfy { custom in
+                custom.color?.isValid ?? true && custom.width.map(Self.widthRange.contains) ?? true
+                    && custom.cornerRadius.map(Self.cornerRadiusRange.contains) ?? true
+            }
             && Self.dimmingRange.contains(spotlightDimming) && Self.fadeDelayRange.contains(fadeDelay)
+    }
+
+    /// How new marks of `tool` look.
+    func style(for tool: DrawingTool) -> ToolStyle {
+        if tool == .highlighter { return ToolStyle(color: highlighterColor, width: highlighterWidth, cornerRadius: 0) }
+        let custom = overrides[tool]
+        return ToolStyle(color: custom?.color ?? color, width: custom?.width ?? lineWidth,
+                         cornerRadius: custom?.cornerRadius ?? cornerRadius)
+    }
+
+    /// The toolbar's color menu. A tool with its own color changes only that; otherwise the
+    /// default color changes, for every tool that follows it.
+    mutating func setColor(_ newColor: RGBAColor, for tool: DrawingTool) {
+        if tool == .highlighter {
+            highlighterColor = newColor
+        } else if overrides[tool]?.color != nil {
+            overrides[tool]?.color = newColor
+        } else {
+            color = newColor
+        }
+    }
+
+    /// One tool's overrides. Clearing the last one removes the tool's entry.
+    subscript(overrides tool: DrawingTool) -> StyleOverrides {
+        get { overrides[tool] ?? StyleOverrides() }
+        set { overrides[tool] = newValue.isEmpty ? nil : newValue }
     }
 
     /// How long a finished drawing stays; nil keeps it until cleared.

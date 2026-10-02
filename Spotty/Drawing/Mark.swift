@@ -60,9 +60,6 @@ struct Mark: Equatable, Sendable {
         points = [start, points[points.count - 1]]
     }
 
-    /// Highlighter strokes are translucent and four times as wide.
-    var strokeWidth: CGFloat { tool == .highlighter ? width * 4 : width }
-
     /// What to draw: a stroked path, or a filled one for arrows. Spotlights cut the dimming instead.
     var shape: (path: CGPath, filled: Bool) {
         switch tool {

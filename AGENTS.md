@@ -21,7 +21,7 @@ xcodebuild -project Spotty.xcodeproj -scheme Spotty -configuration Debug -destin
 
 Signing needs the login keychain, which is locked in plain SSH sessions. There `codesign` fails with `errSecInternalComponent`. Build from the Mac's GUI session instead.
 
-Package and install only when I ask. Bump `CURRENT_PROJECT_VERSION` first, commit, push to `main`, quit Spotty, then run `Scripts/package.sh` and `Scripts/install.sh .build/releases/<zip>`.
+Package and install only when I ask. Bump `CURRENT_PROJECT_VERSION` first, commit, push to `main`, quit Spotty, then run `Scripts/package.sh` and `Scripts/install.sh .build/releases/<zip>`. `package.sh` refuses anything but a clean `HEAD` equal to `origin/main`. Fleet sync then installs the build on the other Macs; don't copy it there yourself.
 
 ## Verifying drawing
 

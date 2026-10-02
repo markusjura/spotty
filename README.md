@@ -61,7 +61,11 @@ Install on the same Mac:
 
 The installer checks the checksum when the `.sha256` file is present, verifies the signature and bundle ID, and warns before installing a build whose designated requirement differs from the installed one, because macOS ties permission grants to it. It replaces `/Applications/Spotty.app` by renaming and keeps the replaced build at `~/Library/Application Support/Spotty Installer/Spotty.previous.app`. `Scripts/install.sh --rollback` swaps the two. Settings in UserDefaults are never touched.
 
-Spotty is not part of fleet sync yet. Install it on each Mac by hand until it is added to the fleet policy in `markusjura/mac-settings`.
+## Fleet
+
+Install on any fleet Mac as above. Fleet sync from `markusjura/mac-settings` then observes the newer build in `/Applications`, archives it, and installs it on the other Macs within minutes. It quits a running Spotty gracefully and reopens it afterwards. Fleet refuses builds whose designated requirement differs from the one pinned in its policy. Check progress with `fleet status` (`spotty.activation`). Fleet never lowers its target, so it reinstalls the newer build within minutes of `install.sh --rollback`. Set `spotty.enabled` to false in the fleet policy first, or fix forward with a higher build number.
+
+A Mac that receives Spotty for the first time leaves it closed. Open it once there and approve the Accessibility prompt.
 
 ## Permissions
 

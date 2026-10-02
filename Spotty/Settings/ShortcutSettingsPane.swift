@@ -30,7 +30,7 @@ struct ShortcutSettingsPane: View {
         case .actions:
             EmptyView()
         case .whileDrawing:
-            Text("While drawing is on, Escape stops, ⌘Z or Delete removes the last drawing, and ⌘⌫ clears all. Shift draws straight lines, squares, and circles.")
+            Text("While drawing is on, Escape stops, ⌘Z or Delete removes the last drawing, and ⌘⌫ clears all. Shift draws straight lines, 45° arrows, and squares.")
                 .secondaryNote()
         }
     }

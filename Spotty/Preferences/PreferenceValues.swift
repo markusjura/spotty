@@ -73,7 +73,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var startTool: DrawingTool?
     /// Remembered across launches for `startTool == nil`.
     var lastTool = DrawingTool.highlighter
-    /// Pen, arrow, rectangle, and ellipse.
+    /// Pen, arrow, and rectangle.
     var color = RGBAColor.annotationRed
     /// Drawn translucent, like a marker.
     var highlighterColor = RGBAColor.highlighterYellow

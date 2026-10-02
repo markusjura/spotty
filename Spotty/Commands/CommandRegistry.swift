@@ -28,9 +28,9 @@ enum CommandGroup: CaseIterable, Sendable {
 
 /// Stable IDs; custom bindings persist by raw value.
 enum CommandID: String, CaseIterable, Codable, Sendable {
-    case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawEllipse, drawSpotlight
+    case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawSpotlight
     case undo, clear
-    case pickPen, pickHighlighter, pickArrow, pickRectangle, pickEllipse, pickSpotlight
+    case pickPen, pickHighlighter, pickArrow, pickRectangle, pickSpotlight
 
     var title: String {
         switch self {
@@ -43,9 +43,9 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var group: CommandGroup {
         switch self {
-        case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawEllipse, .drawSpotlight: .drawing
+        case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawSpotlight: .drawing
         case .undo, .clear: .actions
-        case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickEllipse, .pickSpotlight: .whileDrawing
+        case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickSpotlight: .whileDrawing
         }
     }
 
@@ -66,7 +66,6 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
         case .drawHighlighter, .pickHighlighter: .highlighter
         case .drawArrow, .pickArrow: .arrow
         case .drawRectangle, .pickRectangle: .rectangle
-        case .drawEllipse, .pickEllipse: .ellipse
         case .drawSpotlight, .pickSpotlight: .spotlight
         case .draw, .undo, .clear: nil
         }
@@ -93,7 +92,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     private static let letters: [DrawingTool: Int] = [
         .pen: kVK_ANSI_P, .highlighter: kVK_ANSI_H, .arrow: kVK_ANSI_A,
-        .rectangle: kVK_ANSI_R, .ellipse: kVK_ANSI_O, .spotlight: kVK_ANSI_S,
+        .rectangle: kVK_ANSI_R, .spotlight: kVK_ANSI_S,
     ]
 }
 

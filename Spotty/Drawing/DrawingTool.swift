@@ -1,6 +1,6 @@
 /// The drawing tools, in toolbar and menu order.
 enum DrawingTool: String, Codable, CaseIterable, Sendable {
-    case pen, highlighter, arrow, rectangle, ellipse, spotlight
+    case pen, highlighter, arrow, rectangle, spotlight
 
     var title: String {
         switch self {
@@ -8,7 +8,6 @@ enum DrawingTool: String, Codable, CaseIterable, Sendable {
         case .highlighter: "Highlighter"
         case .arrow: "Arrow"
         case .rectangle: "Rectangle"
-        case .ellipse: "Ellipse"
         case .spotlight: "Spotlight"
         }
     }
@@ -19,7 +18,6 @@ enum DrawingTool: String, Codable, CaseIterable, Sendable {
         case .highlighter: "highlighter"
         case .arrow: "arrow.up.right"
         case .rectangle: "rectangle"
-        case .ellipse: "circle"
         case .spotlight: "rectangle.center.inset.filled"
         }
     }

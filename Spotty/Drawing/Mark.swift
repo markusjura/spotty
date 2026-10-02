@@ -8,7 +8,7 @@ struct Mark: Equatable, Sendable {
     let width: CGFloat
     /// Rectangles and spotlights only.
     let cornerRadius: CGFloat
-    /// Shift: straight freehand lines, 45° arrows, squares, and circles.
+    /// Shift: straight freehand lines, 45° arrows, and squares.
     var isConstrained = false
 
     init(tool: DrawingTool, at point: CGPoint, color: RGBAColor, width: CGFloat, cornerRadius: CGFloat = 0) {
@@ -26,7 +26,7 @@ struct Mark: Equatable, Sendable {
         let end = points[points.count - 1]
         guard isConstrained else { return end }
         switch tool {
-        case .rectangle, .ellipse, .spotlight: return MarkGeometry.squared(from: start, to: end)
+        case .rectangle, .spotlight: return MarkGeometry.squared(from: start, to: end)
         case .arrow, .pen, .highlighter: return MarkGeometry.snapped(from: start, to: end)
         }
     }
@@ -47,7 +47,7 @@ struct Mark: Equatable, Sendable {
         switch tool {
         case .pen, .highlighter: return points.count < 2
         case .arrow: return hypot(end.x - start.x, end.y - start.y) < 8
-        case .rectangle, .ellipse, .spotlight:
+        case .rectangle, .spotlight:
             let rect = MarkGeometry.rect(start, end)
             return rect.width < 4 && rect.height < 4
         }
@@ -76,8 +76,6 @@ struct Mark: Equatable, Sendable {
             return (MarkGeometry.arrow(from: start, to: end, width: width), true)
         case .rectangle:
             return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), false)
-        case .ellipse:
-            return (CGPath(ellipseIn: MarkGeometry.ellipseRect(start, end), transform: nil), false)
         case .spotlight:
             return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), true)
         }
@@ -87,13 +85,6 @@ struct Mark: Equatable, Sendable {
 enum MarkGeometry {
     static func rect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
         CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
-    }
-
-    /// The bounds of the ellipse through both drag points, centered between them. Corners of a rect
-    /// lie on the ellipse inscribed in that rect scaled by √2, so the line follows the pointer.
-    static func ellipseRect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
-        let rect = rect(a, b), grow = (2.squareRoot() - 1) / 2
-        return rect.insetBy(dx: -rect.width * grow, dy: -rect.height * grow)
     }
 
     /// The end of a square drag: the longer side wins, keeping the drag's direction.

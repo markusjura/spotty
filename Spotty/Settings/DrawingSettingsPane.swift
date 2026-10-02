@@ -25,6 +25,12 @@ struct DrawingSettingsPane: View {
                         Text("\(Int(width)) pt").tag(width)
                     }
                 }
+                Picker("Corner radius", selection: $preferences.drawing.cornerRadius) {
+                    ForEach(DrawingPreferences.cornerRadiusPresets, id: \.self) { radius in
+                        Text(radius == 0 ? "None" : "\(Int(radius)) pt").tag(radius)
+                    }
+                }
+                .help("Rectangles and spotlights")
                 LabeledContent("Spotlight dimming") {
                     HStack {
                         // No step: a stepped macOS slider draws a tick per step.

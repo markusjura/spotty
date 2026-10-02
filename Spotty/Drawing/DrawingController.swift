@@ -102,7 +102,7 @@ final class DrawingController {
         // Shift draws straight lines and squares, unless it is part of the held shortcut.
         let held = session.heldSlot.flatMap(commands.shortcut(for:))
         return MarkStyle(tool: session.tool, color: drawing.color, highlighterColor: drawing.highlighterColor,
-                         width: drawing.lineWidth, dimming: drawing.spotlightDimming / 100,
+                         width: drawing.lineWidth, cornerRadius: drawing.cornerRadius, dimming: drawing.spotlightDimming / 100,
                          shiftConstrains: !(held?.modifiers.contains(.shift) ?? false))
     }
 

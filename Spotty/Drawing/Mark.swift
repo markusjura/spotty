@@ -6,14 +6,17 @@ struct Mark: Equatable, Sendable {
     var points: [CGPoint]
     let color: RGBAColor
     let width: CGFloat
+    /// Rectangles and spotlights only.
+    let cornerRadius: CGFloat
     /// Shift: straight freehand lines, 45° arrows, squares, and circles.
     var isConstrained = false
 
-    init(tool: DrawingTool, at point: CGPoint, color: RGBAColor, width: CGFloat) {
+    init(tool: DrawingTool, at point: CGPoint, color: RGBAColor, width: CGFloat, cornerRadius: CGFloat = 0) {
         self.tool = tool
         points = [point]
         self.color = color
         self.width = width
+        self.cornerRadius = cornerRadius
     }
 
     var start: CGPoint { points[0] }
@@ -72,13 +75,11 @@ struct Mark: Equatable, Sendable {
         case .arrow:
             return (MarkGeometry.arrow(from: start, to: end, width: width), true)
         case .rectangle:
-            let rect = MarkGeometry.rect(start, end)
-            let radius = min(width * 1.5, rect.width / 2, rect.height / 2)
-            return (CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil), false)
+            return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), false)
         case .ellipse:
             return (CGPath(ellipseIn: MarkGeometry.rect(start, end), transform: nil), false)
         case .spotlight:
-            return (MarkGeometry.spotlight(MarkGeometry.rect(start, end)), true)
+            return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), true)
         }
     }
 }
@@ -148,10 +149,9 @@ enum MarkGeometry {
         return shaft.copy(strokingWithWidth: width, lineCap: .round, lineJoin: .round, miterLimit: 10).union(head)
     }
 
-    static let spotlightRadius: CGFloat = 12
-
-    static func spotlight(_ rect: CGRect) -> CGPath {
-        let radius = min(spotlightRadius, rect.width / 2, rect.height / 2)
+    /// The radius shrinks to fit small rects; zero gives hard corners.
+    static func roundedRect(_ rect: CGRect, radius: CGFloat) -> CGPath {
+        let radius = min(radius, rect.width / 2, rect.height / 2)
         return CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 

@@ -35,11 +35,26 @@ final class MarkTests: XCTestCase {
         XCTAssertFalse(mark(.ellipse, [.zero, CGPoint(x: 40, y: 1)]).isEmpty)
     }
 
+    func testCornerRadiusRoundsRectanglesAndSpotlights() {
+        func shape(_ tool: DrawingTool, to end: CGPoint, radius: CGFloat) -> CGPath {
+            var mark = Mark(tool: tool, at: .zero, color: .annotationRed, width: 4, cornerRadius: radius)
+            mark.add(end)
+            return mark.shape.path
+        }
+        let corner = CGPoint(x: 1, y: 1), end = CGPoint(x: 100, y: 100)
+        for tool in [DrawingTool.rectangle, .spotlight] {
+            XCTAssertTrue(shape(tool, to: end, radius: 0).contains(corner), "\(tool) corners are hard at zero")
+            XCTAssertFalse(shape(tool, to: end, radius: 16).contains(corner), "\(tool) corners follow the radius")
+        }
+        XCTAssertTrue(shape(.rectangle, to: CGPoint(x: 10, y: 30), radius: 24).contains(CGPoint(x: 5, y: 15)),
+                      "The radius shrinks to fit small rects")
+    }
+
     func testSpotlightsCutHolesInTheDimming() {
         let bounds = CGRect(x: 0, y: 0, width: 200, height: 200)
         let dimming = MarkGeometry.dimming(bounds, spotlights: [
-            MarkGeometry.spotlight(CGRect(x: 20, y: 20, width: 60, height: 60)),
-            MarkGeometry.spotlight(CGRect(x: 50, y: 50, width: 60, height: 60)),
+            MarkGeometry.roundedRect(CGRect(x: 20, y: 20, width: 60, height: 60), radius: 12),
+            MarkGeometry.roundedRect(CGRect(x: 50, y: 50, width: 60, height: 60), radius: 12),
         ])
         XCTAssertFalse(dimming.contains(CGPoint(x: 50, y: 50)))
         XCTAssertFalse(dimming.contains(CGPoint(x: 70, y: 70)), "Overlapping spotlights stay bright")

@@ -65,6 +65,7 @@ struct RGBAColor: Codable, Hashable, Sendable {
 
 struct DrawingPreferences: Codable, Equatable, Sendable {
     static let widthPresets: [Double] = [3, 4, 6, 8, 10, 14]
+    static let cornerRadiusPresets: [Double] = [0, 4, 8, 12, 16, 24]
     static let dimmingRange = 20.0...80.0
     static let fadeDelayRange = 0.5...600.0
 
@@ -77,6 +78,8 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     /// Drawn translucent, like a marker.
     var highlighterColor = RGBAColor.highlighterYellow
     var lineWidth = 4.0
+    /// Rectangle and spotlight corners, in points. Zero draws hard corners.
+    var cornerRadius = 0.0
     /// How dark the screen gets around spotlights, in percent.
     var spotlightDimming = 50.0
     /// Off keeps drawings until cleared.
@@ -86,6 +89,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
 
     var isValid: Bool {
         color.isValid && highlighterColor.isValid && Self.widthPresets.contains(lineWidth)
+            && Self.cornerRadiusPresets.contains(cornerRadius)
             && Self.dimmingRange.contains(spotlightDimming) && Self.fadeDelayRange.contains(fadeDelay)
     }
 

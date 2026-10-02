@@ -7,6 +7,7 @@ struct MarkStyle: Equatable {
     var color: RGBAColor
     var highlighterColor: RGBAColor
     var width: CGFloat
+    var cornerRadius: CGFloat
     /// Spotlight dimming, 0...1.
     var dimming: CGFloat
     /// False while Shift belongs to the held drawing shortcut, as in ⌃⇧.
@@ -103,10 +104,11 @@ final class OverlayView: NSView {
         guard let style = style() else { return }
         finishLive()
         let color = style.tool == .highlighter ? style.highlighterColor.withAlpha(0.4) : style.color
-        let mark = Mark(tool: style.tool, at: point, color: color, width: style.width)
+        let mark = Mark(tool: style.tool, at: point, color: color, width: style.width, cornerRadius: style.cornerRadius)
         let layer = CAShapeLayer()
         layer.lineCap = .round
-        layer.lineJoin = .round
+        // Round joins would soften a rectangle's hard corners.
+        layer.lineJoin = style.tool == .rectangle ? .miter : .round
         if style.tool == .spotlight {
             currentDimming = style.dimming
             layer.isHidden = true

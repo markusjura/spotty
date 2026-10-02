@@ -34,6 +34,11 @@ mkdir -p .build/releases
 zip=".build/releases/$name.zip"
 [[ ! -e "$zip" ]] || { print -u2 "$zip already exists. Bump CURRENT_PROJECT_VERSION or remove it."; exit 1 }
 
+# Xcode never updates the bundle folder's own date, and launchers like Raycast keep a cached
+# icon until that date changes. Touching the folder leaves the signature intact.
+touch "$app"
+codesign --verify --deep --strict "$app"
+
 # ditto preserves the bundle's signature, symlinks, and extended attributes. Write under a temporary
 # name so an interrupted run never leaves a partial archive that looks complete.
 trap 'rm -f "$zip.partial"' EXIT

@@ -223,7 +223,7 @@ final class OverlayView: NSView {
     }
 
     override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .crosshair)
+        addCursorRect(bounds, cursor: .arrow)
     }
 
     override func updateTrackingAreas() {
@@ -233,10 +233,10 @@ final class OverlayView: NSView {
                                        owner: self))
     }
 
-    /// Spotty stays inactive while drawing, so cursor rects alone are not enough.
-    override func cursorUpdate(with event: NSEvent) { if style() != nil { NSCursor.crosshair.set() } }
-    override func mouseMoved(with event: NSEvent) { if style() != nil { NSCursor.crosshair.set() } }
-    override func mouseEntered(with event: NSEvent) { if style() != nil { NSCursor.crosshair.set() } }
+    /// Drawing keeps the plain arrow. Spotty stays inactive while drawing, so cursor rects alone are not enough.
+    override func cursorUpdate(with event: NSEvent) { if style() != nil { NSCursor.arrow.set() } }
+    override func mouseMoved(with event: NSEvent) { if style() != nil { NSCursor.arrow.set() } }
+    override func mouseEntered(with event: NSEvent) { if style() != nil { NSCursor.arrow.set() } }
 
     private func withoutAnimation(_ body: () -> Void) {
         CATransaction.begin()

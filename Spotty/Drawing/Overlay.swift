@@ -36,7 +36,7 @@ final class Overlay {
             panel.orderFrontRegardless()
         }
         setKeyboard(keyboard)
-        NSCursor.crosshair.set()
+        NSCursor.arrow.set()
     }
 
     func setKeyboard(_ keyboard: Bool) {

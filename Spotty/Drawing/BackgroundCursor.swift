@@ -1,9 +1,10 @@
 import AppKit
 
-/// Lets Spotty set the cursor while another app is active, so the overlay can show a crosshair
-/// without taking focus. macOS only honors cursor changes from the active app unless the
-/// connection opts in through the private `SetsCursorInBackground` property. The symbols are
-/// looked up at runtime; if they ever disappear, the cursor simply stays an arrow.
+/// Lets Spotty set the cursor while another app is active, so drawing shows the plain arrow
+/// instead of the app's cursor below, such as an I-beam over text, without taking focus. macOS
+/// only honors cursor changes from the active app unless the connection opts in through the
+/// private `SetsCursorInBackground` property. The symbols are looked up at runtime; if they ever
+/// disappear, the cursor is whatever the app below sets.
 enum BackgroundCursor {
     private typealias DefaultConnection = @convention(c) () -> Int32
     private typealias SetProperty = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32

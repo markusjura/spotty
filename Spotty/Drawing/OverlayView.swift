@@ -176,16 +176,6 @@ final class OverlayView: NSView {
         if removed.mark.tool == .spotlight { updateDimming() }
     }
 
-    /// Removes every spotlight and returns their IDs.
-    func removeSpotlights() -> [UUID] {
-        let spotlights = marks.filter { $0.mark.tool == .spotlight }
-        guard !spotlights.isEmpty else { return [] }
-        withoutAnimation { spotlights.forEach { $0.layer.removeFromSuperlayer() } }
-        marks.removeAll { $0.mark.tool == .spotlight }
-        updateDimming()
-        return spotlights.map(\.id)
-    }
-
     func removeAll() {
         withoutAnimation {
             for item in marks { item.layer.removeFromSuperlayer() }

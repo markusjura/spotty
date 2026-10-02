@@ -53,15 +53,12 @@ final class Overlay {
         }
     }
 
-    /// Stops taking the mouse and removes spotlights at once. Other drawings stay until their own
-    /// fade timers run out.
+    /// Stops taking the mouse. Drawings stay until their own fade timers run out.
     func deactivate() {
         isActive = false
         pointerView = nil
         for (panel, view) in panels.values {
             view.finishLive()
-            let spotlights = view.removeSpotlights()
-            history.removeAll { spotlights.contains($0.mark) }
             panel.acceptsKey = false
             panel.ignoresMouseEvents = true
             if panel.isKeyWindow { panel.resignKey() }
@@ -133,9 +130,13 @@ final class Overlay {
         view.style = { [weak self] in self?.isActive == true ? self?.style() : nil }
         view.didFinish = { [weak self] view, mark, tool in
             guard let self else { return }
-            history.append((view, mark))
-            // Spotlights last until drawing ends, whatever the fade setting.
-            if tool != .spotlight { scheduleFade(of: mark, in: view) }
+            // A spotlight lasts only while its drag does, whatever the fade setting.
+            if tool == .spotlight {
+                view.remove(mark)
+            } else {
+                history.append((view, mark))
+                scheduleFade(of: mark, in: view)
+            }
             didDraw()
         }
         view.handleKey = { [weak self] event in self?.handleKey(event) ?? false }

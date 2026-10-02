@@ -59,7 +59,7 @@ struct DrawingSettingsPane: View {
                 }
                 .disabled(!preferences.drawing.fadesDrawings)
                 Text(preferences.drawing.fadesDrawings
-                     ? "Each drawing fades on its own timer, counted from when you finish it. Spotlights end when drawing does."
+                     ? "Each drawing fades on its own timer, counted from when you finish it. Spotlights disappear when you let go."
                      : "Drawings stay on screen until you clear them. Clicks pass through them.")
                     .secondaryNote()
             }

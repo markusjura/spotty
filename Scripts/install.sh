@@ -13,7 +13,8 @@ set -euo pipefail
 
 bundle_id=local.markus.Spotty
 installed=/Applications/Spotty.app
-keep_dir="$HOME/Library/Application Support/Spotty Installer"
+# Spotlight skips .noindex folders, so launchers like Raycast never list the kept build and its old icon.
+keep_dir="$HOME/Library/Application Support/Spotty Installer.noindex"
 previous="$keep_dir/Spotty.previous.app"
 
 fail() { print -u2 "$1"; exit 1 }

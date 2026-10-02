@@ -42,8 +42,8 @@ final class OverlayPanel: NSPanel {
 final class OverlayView: NSView {
     /// The style for a new mark; nil when drawing is off.
     var style: () -> MarkStyle? = { nil }
-    /// Called with the ID of each kept mark, for undo and its fade timer.
-    var didFinish: (OverlayView, UUID) -> Void = { _, _ in }
+    /// Called with each kept mark, for undo and its fade timer.
+    var didFinish: (OverlayView, UUID, DrawingTool) -> Void = { _, _, _ in }
     /// Returns true when the key was handled.
     var handleKey: (NSEvent) -> Bool = { _ in false }
 
@@ -136,9 +136,10 @@ final class OverlayView: NSView {
             updateDimming()
             return
         }
-        render(current)
+        // Kept before rendering, so the dimming still counts a finished spotlight.
         marks.append(current)
-        didFinish(self, current.id)
+        render(current)
+        didFinish(self, current.id, current.mark.tool)
     }
 
     private func render(_ item: Drawn) {
@@ -186,30 +187,21 @@ final class OverlayView: NSView {
 
     // MARK: Fading
 
-    /// Fades one mark out and removes it. Returns at once when the mark is already gone.
+    /// Fades one stroked or filled mark out and removes it. Returns at once when the mark is already gone.
+    /// Spotlights never fade; they draw no layer of their own.
     func fadeOut(_ id: UUID) async {
         guard let item = marks.first(where: { $0.id == id }) else { return }
-        let duration = Chrome.reduceMotion ? 0.01 : Chrome.drawingFadeDuration
         await withCheckedContinuation { continuation in
             CATransaction.begin()
             CATransaction.setCompletionBlock { continuation.resume() }
-            if item.mark.tool == .spotlight {
-                // Spotlights share one dimming layer, so crossfade it to the dimming without this hole.
-                let transition = CATransition()
-                transition.type = .fade
-                transition.duration = duration
-                dimming.add(transition, forKey: "fade")
-                remove(id)
-            } else {
-                let fade = CABasicAnimation(keyPath: "opacity")
-                fade.fromValue = 1
-                fade.toValue = 0
-                fade.duration = duration
-                fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                fade.fillMode = .forwards
-                fade.isRemovedOnCompletion = false
-                item.layer.add(fade, forKey: "fade")
-            }
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            fade.duration = Chrome.reduceMotion ? 0.01 : Chrome.drawingFadeDuration
+            fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            fade.fillMode = .forwards
+            fade.isRemovedOnCompletion = false
+            item.layer.add(fade, forKey: "fade")
             CATransaction.commit()
         }
         remove(id)

@@ -53,7 +53,7 @@ final class Overlay {
         }
     }
 
-    /// Stops taking the mouse. Drawings stay until their own fade timers run out.
+    /// Stops taking the mouse. Drawings stay until their own fade timers run out, spotlights until cleared.
     func deactivate() {
         isActive = false
         pointerView = nil
@@ -128,10 +128,11 @@ final class Overlay {
         let view = OverlayView(frame: CGRect(origin: .zero, size: screen.frame.size))
         view.autoresizingMask = [.width, .height]
         view.style = { [weak self] in self?.isActive == true ? self?.style() : nil }
-        view.didFinish = { [weak self] view, mark in
+        view.didFinish = { [weak self] view, mark, tool in
             guard let self else { return }
             history.append((view, mark))
-            scheduleFade(of: mark, in: view)
+            // Spotlights stay until undone or cleared, whatever the fade setting.
+            if tool != .spotlight { scheduleFade(of: mark, in: view) }
             didDraw()
         }
         view.handleKey = { [weak self] event in self?.handleKey(event) ?? false }

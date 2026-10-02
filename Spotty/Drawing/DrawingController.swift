@@ -18,6 +18,7 @@ final class DrawingController {
         self.commands = commands
         session = DrawingSession(tool: preferences.drawing.resolvedStartTool)
         overlay.style = { [weak self] in self?.markStyle }
+        overlay.fadeAfter = { [weak self] in self?.preferences.drawing.fadeAfter }
         overlay.didDraw = { [weak self] in self?.update { $0.didDraw() } }
         overlay.handleKey = { [weak self] in self?.handleKey($0) ?? false }
     }
@@ -82,7 +83,7 @@ final class DrawingController {
         case (.holding, .latched): overlay.setKeyboard(true); toolbar.show()
         case (_, .off) where old.mode != .off:
             toolbar.hide()
-            overlay.deactivate(fadeAfter: preferences.drawing.fade.interval)
+            overlay.deactivate()
         default: break
         }
     }

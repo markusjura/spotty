@@ -6,7 +6,7 @@ A native macOS screen highlighter tailored to Markus's workflow, from the same f
 
 Every drawing shortcut works two ways:
 
-- Hold it to draw until you let go. Drawings fade a few seconds later.
+- Hold it to draw until you let go. Each drawing fades 2 seconds after you finish it, adjustable in Settings > Drawing.
 - Tap it to keep drawing on. Tap it again, press Escape, or click Done to stop.
 
 The defaults, all changeable in Settings > Shortcuts:

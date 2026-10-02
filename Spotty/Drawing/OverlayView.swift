@@ -41,15 +41,23 @@ final class OverlayPanel: NSPanel {
 final class OverlayView: NSView {
     /// The style for a new mark; nil when drawing is off.
     var style: () -> MarkStyle? = { nil }
-    var didFinish: (OverlayView) -> Void = { _ in }
+    /// Called with the ID of each kept mark, for undo and its fade timer.
+    var didFinish: (OverlayView, UUID) -> Void = { _, _ in }
     /// Returns true when the key was handled.
     var handleKey: (NSEvent) -> Bool = { _ in false }
 
-    /// Fades as one, above the dimming.
+    /// A mark and the layer that draws it. Spotlights keep a hidden layer and cut a hole in `dimming` instead.
+    private struct Drawn {
+        let id = UUID()
+        var mark: Mark
+        let layer: CAShapeLayer
+    }
+
+    /// Holds the dimming and the mark layers above it.
     private let content = CALayer()
     private let dimming = CAShapeLayer()
-    private var marks: [(mark: Mark, layer: CAShapeLayer)] = []
-    private var live: (mark: Mark, layer: CAShapeLayer)?
+    private var marks: [Drawn] = []
+    private var live: Drawn?
     private var currentDimming: CGFloat = 0.5
 
     override init(frame: NSRect) {
@@ -72,8 +80,6 @@ final class OverlayView: NSView {
             updateDimming()
         }
     }
-
-    var hasMarks: Bool { !marks.isEmpty || live != nil }
 
     // MARK: Mouse
 
@@ -106,7 +112,7 @@ final class OverlayView: NSView {
             layer.isHidden = true
         }
         withoutAnimation { content.addSublayer(layer) }
-        live = (mark, layer)
+        live = Drawn(mark: mark, layer: layer)
         extendMark(to: point, shift: shift)
     }
 
@@ -130,10 +136,10 @@ final class OverlayView: NSView {
         }
         render(current)
         marks.append(current)
-        didFinish(self)
+        didFinish(self, current.id)
     }
 
-    private func render(_ item: (mark: Mark, layer: CAShapeLayer)) {
+    private func render(_ item: Drawn) {
         withoutAnimation {
             let shape = item.mark.shape
             if item.mark.tool == .spotlight {
@@ -158,10 +164,12 @@ final class OverlayView: NSView {
 
     // MARK: Editing
 
-    func removeLast() {
-        guard let last = marks.popLast() else { return }
-        withoutAnimation { last.layer.removeFromSuperlayer() }
-        updateDimming()
+    /// Does nothing when the mark is already gone.
+    func remove(_ id: UUID) {
+        guard let index = marks.firstIndex(where: { $0.id == id }) else { return }
+        let removed = marks.remove(at: index)
+        withoutAnimation { removed.layer.removeFromSuperlayer() }
+        if removed.mark.tool == .spotlight { updateDimming() }
     }
 
     func removeAll() {
@@ -176,23 +184,33 @@ final class OverlayView: NSView {
 
     // MARK: Fading
 
-    /// Fades everything out, then calls `completion` unless `cancelFade()` ran first.
-    func fadeOut(completion: @escaping @MainActor () -> Void) {
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { MainActor.assumeIsolated { completion() } }
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0
-        fade.duration = Chrome.reduceMotion ? 0.01 : Chrome.drawingFadeDuration
-        fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
-        fade.fillMode = .forwards
-        fade.isRemovedOnCompletion = false
-        content.add(fade, forKey: "fade")
-        CATransaction.commit()
-    }
-
-    func cancelFade() {
-        content.removeAnimation(forKey: "fade")
+    /// Fades one mark out and removes it. Returns at once when the mark is already gone.
+    func fadeOut(_ id: UUID) async {
+        guard let item = marks.first(where: { $0.id == id }) else { return }
+        let duration = Chrome.reduceMotion ? 0.01 : Chrome.drawingFadeDuration
+        await withCheckedContinuation { continuation in
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { continuation.resume() }
+            if item.mark.tool == .spotlight {
+                // Spotlights share one dimming layer, so crossfade it to the dimming without this hole.
+                let transition = CATransition()
+                transition.type = .fade
+                transition.duration = duration
+                dimming.add(transition, forKey: "fade")
+                remove(id)
+            } else {
+                let fade = CABasicAnimation(keyPath: "opacity")
+                fade.fromValue = 1
+                fade.toValue = 0
+                fade.duration = duration
+                fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                fade.fillMode = .forwards
+                fade.isRemovedOnCompletion = false
+                item.layer.add(fade, forKey: "fade")
+            }
+            CATransaction.commit()
+        }
+        remove(id)
     }
 
     // MARK: Keys and cursor

@@ -63,32 +63,10 @@ struct RGBAColor: Codable, Hashable, Sendable {
     }
 }
 
-/// How long drawings stay after drawing ends. Drawing again before they fade keeps them.
-enum FadeDelay: String, Codable, CaseIterable, Sendable {
-    case seconds2, seconds5, seconds10, never
-
-    var interval: Duration? {
-        switch self {
-        case .seconds2: .seconds(2)
-        case .seconds5: .seconds(5)
-        case .seconds10: .seconds(10)
-        case .never: nil
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .seconds2: "After 2 seconds"
-        case .seconds5: "After 5 seconds"
-        case .seconds10: "After 10 seconds"
-        case .never: "Keep until cleared"
-        }
-    }
-}
-
 struct DrawingPreferences: Codable, Equatable, Sendable {
     static let widthPresets: [Double] = [3, 4, 6, 8, 10, 14]
     static let dimmingRange = 20.0...80.0
+    static let fadeDelayRange = 0.5...600.0
 
     /// The tool Draw starts with; nil starts with the last used tool.
     var startTool: DrawingTool?
@@ -101,11 +79,18 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var lineWidth = 4.0
     /// How dark the screen gets around spotlights, in percent.
     var spotlightDimming = 50.0
-    var fade = FadeDelay.seconds5
+    /// Off keeps drawings until cleared.
+    var fadesDrawings = true
+    /// Seconds each drawing stays after you finish it.
+    var fadeDelay = 2.0
 
     var isValid: Bool {
-        color.isValid && highlighterColor.isValid && Self.widthPresets.contains(lineWidth) && Self.dimmingRange.contains(spotlightDimming)
+        color.isValid && highlighterColor.isValid && Self.widthPresets.contains(lineWidth)
+            && Self.dimmingRange.contains(spotlightDimming) && Self.fadeDelayRange.contains(fadeDelay)
     }
+
+    /// How long a finished drawing stays; nil keeps it until cleared.
+    var fadeAfter: Duration? { fadesDrawings ? .seconds(fadeDelay) : nil }
 
     /// The tool Draw starts with now.
     var resolvedStartTool: DrawingTool { startTool ?? lastTool }

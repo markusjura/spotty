@@ -37,12 +37,24 @@ struct DrawingSettingsPane: View {
                 }
             }
             Section {
-                Picker("Drawings fade", selection: $preferences.drawing.fade) {
-                    ForEach(FadeDelay.allCases, id: \.self) { Text($0.title).tag($0) }
+                Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
+                LabeledContent("Fade after") {
+                    HStack {
+                        // Parses with the user's locale, so a German Mac takes 1,5. Out of range values snap to the nearest limit.
+                        let range = DrawingPreferences.fadeDelayRange
+                        TextField("Fade after", value: Binding(get: { preferences.drawing.fadeDelay },
+                                                               set: { preferences.drawing.fadeDelay = min(max($0, range.lowerBound), range.upperBound) }),
+                                  format: .number.precision(.fractionLength(0...2)))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                        Text("seconds")
+                    }
                 }
-                Text(preferences.drawing.fade == .never
-                     ? "Drawings stay on screen until you clear them. Clicks pass through them."
-                     : "Counted from when you stop drawing. Drawing again first keeps them.")
+                .disabled(!preferences.drawing.fadesDrawings)
+                Text(preferences.drawing.fadesDrawings
+                     ? "Each drawing fades on its own timer, counted from when you finish it."
+                     : "Drawings stay on screen until you clear them. Clicks pass through them.")
                     .secondaryNote()
             }
         }

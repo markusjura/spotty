@@ -6,14 +6,15 @@ import AppKit
 final class Overlay {
     /// The style for new marks while drawing is on.
     var style: () -> MarkStyle? = { nil }
+    /// How long each finished mark stays; nil keeps it until cleared.
+    var fadeAfter: () -> Duration? = { nil }
     var didDraw: () -> Void = { }
     var handleKey: (NSEvent) -> Bool = { _ in false }
 
     private var panels: [CGDirectDisplayID: (panel: OverlayPanel, view: OverlayView)] = [:]
-    /// Views in the order their marks were drawn, for undo across displays.
-    private var history: [OverlayView] = []
+    /// Marks in the order they were drawn, for undo across displays.
+    private var history: [(view: OverlayView, mark: UUID)] = []
     private var isActive = false
-    private var fadeTask: Task<Void, Never>?
     private var screenObserver: NSObjectProtocol?
 
     init() {
@@ -28,7 +29,6 @@ final class Overlay {
     /// Shows the panels and starts taking the mouse. `keyboard` also takes key focus, for
     /// toggled-on drawing; held drawing leaves keys with the app you are working in.
     func activate(keyboard: Bool) {
-        cancelFade()
         isActive = true
         for screen in NSScreen.screens { ensurePanel(for: screen) }
         for (panel, _) in panels.values {
@@ -53,8 +53,8 @@ final class Overlay {
         }
     }
 
-    /// Stops taking the mouse, then fades the drawings after `fadeAfter`, or keeps them for nil.
-    func deactivate(fadeAfter: Duration?) {
+    /// Stops taking the mouse. Drawings stay until their own fade timers run out.
+    func deactivate() {
         isActive = false
         pointerView = nil
         for (panel, view) in panels.values {
@@ -64,13 +64,7 @@ final class Overlay {
             if panel.isKeyWindow { panel.resignKey() }
         }
         NSCursor.arrow.set()
-        guard hasDrawings else { return hidePanels() }
-        guard let fadeAfter else { return }
-        fadeTask = Task { [weak self] in
-            try? await Task.sleep(for: fadeAfter)
-            guard !Task.isCancelled else { return }
-            self?.fadeOut()
-        }
+        if !hasDrawings { hidePanels() }
     }
 
     /// The view drawing a mark from a held mouse button shortcut, which AppKit never sees as a drag.
@@ -96,37 +90,28 @@ final class Overlay {
     }
 
     func undo() {
-        guard let view = history.popLast() else { return }
-        view.removeLast()
+        guard let last = history.popLast() else { return }
+        last.view.remove(last.mark)
         if !isActive && !hasDrawings { hidePanels() }
     }
 
+    /// Pending fade timers find their marks gone and do nothing.
     func clear() {
-        cancelFade()
         for (_, view) in panels.values { view.removeAll() }
         history.removeAll()
         if !isActive { hidePanels() }
     }
 
-    private func fadeOut() {
-        let views = panels.values.map(\.view).filter(\.hasMarks)
-        guard !views.isEmpty else { return hidePanels() }
-        var remaining = views.count
-        for view in views {
-            view.fadeOut { [weak self] in
-                remaining -= 1
-                // A new drawing session cancels the fade and keeps the drawings.
-                guard remaining == 0, let self, !self.isActive, self.fadeTask != nil else { return }
-                self.fadeTask = nil
-                self.clear()
-            }
+    /// Starts a finished mark's own fade timer, so drawing more never extends it.
+    private func scheduleFade(of mark: UUID, in view: OverlayView) {
+        guard let fadeAfter = fadeAfter() else { return }
+        Task { [weak self, weak view] in
+            try? await Task.sleep(for: fadeAfter)
+            await view?.fadeOut(mark)
+            guard let self else { return }
+            history.removeAll { $0.mark == mark }
+            if !isActive && !hasDrawings { hidePanels() }
         }
-    }
-
-    private func cancelFade() {
-        fadeTask?.cancel()
-        fadeTask = nil
-        for (_, view) in panels.values { view.cancelFade() }
     }
 
     private func hidePanels() {
@@ -143,9 +128,11 @@ final class Overlay {
         let view = OverlayView(frame: CGRect(origin: .zero, size: screen.frame.size))
         view.autoresizingMask = [.width, .height]
         view.style = { [weak self] in self?.isActive == true ? self?.style() : nil }
-        view.didFinish = { [weak self] view in
-            self?.history.append(view)
-            self?.didDraw()
+        view.didFinish = { [weak self] view, mark in
+            guard let self else { return }
+            history.append((view, mark))
+            scheduleFade(of: mark, in: view)
+            didDraw()
         }
         view.handleKey = { [weak self] event in self?.handleKey(event) ?? false }
         panel.contentView = view
@@ -157,7 +144,7 @@ final class Overlay {
         let displays = Set(NSScreen.screens.compactMap(\.displayID))
         for (display, entry) in panels where !displays.contains(display) {
             entry.panel.orderOut(nil)
-            history.removeAll { $0 === entry.view }
+            history.removeAll { $0.view === entry.view }
             panels[display] = nil
         }
         if isActive {

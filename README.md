@@ -38,7 +38,7 @@ Scripts/run.sh dev
 
 `Scripts/build.sh` builds the signed Release app at `.build/Build/Products/Release/Spotty.app`. `Scripts/run.sh dev` rebuilds the Debug app and relaunches it; `Scripts/run.sh installed` switches back to `/Applications/Spotty.app`. The target uses Hardened Runtime, no App Sandbox, and no entitlements. This is private Apple Development signing, not a notarized Developer ID release, so a copied build may not launch as trusted on another Mac.
 
-`Scripts/GenerateAppIcon.swift` draws the app icon. Run `swift Scripts/GenerateAppIcon.swift` after changing it.
+`Scripts/GenerateAppIcon.swift` draws the app icon and the menu bar icon from one glyph. Run `swift Scripts/GenerateAppIcon.swift` after changing it.
 
 ## Package, install, and roll back
 

@@ -17,7 +17,7 @@ struct SpottyApp: App {
         .commands {
             SwiftUI.CommandGroup(replacing: .appSettings) { SettingsButton() }
         }
-        MenuBarExtra("Spotty", systemImage: "highlighter", isInserted: Binding(
+        MenuBarExtra("Spotty", image: "MenuBarIcon", isInserted: Binding(
             get: { delegate.preferences.general.showsMenuBarIcon },
             set: { delegate.preferences.general.showsMenuBarIcon = $0 })) {
             SpottyMenu(drawing: delegate.drawing, inputTap: delegate.inputTap)

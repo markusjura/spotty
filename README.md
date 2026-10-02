@@ -42,7 +42,7 @@ Scripts/run.sh dev
 
 ## Package, install, and roll back
 
-Set `MARKETING_VERSION` and increase `CURRENT_PROJECT_VERSION` in the Spotty target, commit, and push to `main`, then package:
+Increase `CURRENT_PROJECT_VERSION` in the Spotty target, commit, and push to `main`, then package:
 
 ```sh
 Scripts/package.sh

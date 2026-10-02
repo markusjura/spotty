@@ -149,7 +149,8 @@ final class OverlayView: NSView {
                 updateDimming()
                 return
             }
-            item.layer.path = shape.path
+            // Nothing shows until the drag is long enough to keep, so a click draws no lone arrowhead.
+            item.layer.path = item.mark.isEmpty ? nil : shape.path
             item.layer.fillColor = shape.filled ? item.mark.color.cgColor : nil
             item.layer.strokeColor = shape.filled ? nil : item.mark.color.cgColor
             item.layer.lineWidth = item.mark.strokeWidth

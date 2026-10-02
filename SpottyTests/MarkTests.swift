@@ -35,6 +35,18 @@ final class MarkTests: XCTestCase {
         XCTAssertFalse(mark(.ellipse, [.zero, CGPoint(x: 40, y: 1)]).isEmpty)
     }
 
+    func testEllipsesPassThroughBothDragPoints() {
+        for (start, end, shift) in [(CGPoint(x: 4, y: 4), CGPoint(x: 50, y: 30), false),
+                                    (CGPoint(x: 80, y: 10), CGPoint(x: 20, y: 70), true)] {
+            let ellipse = mark(.ellipse, [start, end], shift: shift)
+            let box = ellipse.shape.path.boundingBox
+            for point in [ellipse.start, ellipse.end] {
+                let x = (point.x - box.midX) / (box.width / 2), y = (point.y - box.midY) / (box.height / 2)
+                XCTAssertEqual(x * x + y * y, 1, accuracy: 0.001, "\(point) lies on the ellipse")
+            }
+        }
+    }
+
     func testCornerRadiusRoundsRectanglesAndSpotlights() {
         func shape(_ tool: DrawingTool, to end: CGPoint, radius: CGFloat) -> CGPath {
             var mark = Mark(tool: tool, at: .zero, color: .annotationRed, width: 4, cornerRadius: radius)

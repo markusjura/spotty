@@ -77,7 +77,7 @@ struct Mark: Equatable, Sendable {
         case .rectangle:
             return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), false)
         case .ellipse:
-            return (CGPath(ellipseIn: MarkGeometry.rect(start, end), transform: nil), false)
+            return (CGPath(ellipseIn: MarkGeometry.ellipseRect(start, end), transform: nil), false)
         case .spotlight:
             return (MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: cornerRadius), true)
         }
@@ -87,6 +87,13 @@ struct Mark: Equatable, Sendable {
 enum MarkGeometry {
     static func rect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
         CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
+    }
+
+    /// The bounds of the ellipse through both drag points, centered between them. Corners of a rect
+    /// lie on the ellipse inscribed in that rect scaled by √2, so the line follows the pointer.
+    static func ellipseRect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
+        let rect = rect(a, b), grow = (2.squareRoot() - 1) / 2
+        return rect.insetBy(dx: -rect.width * grow, dy: -rect.height * grow)
     }
 
     /// The end of a square drag: the longer side wins, keeping the drag's direction.

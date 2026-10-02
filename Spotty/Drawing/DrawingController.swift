@@ -37,9 +37,14 @@ final class DrawingController {
             case .overlay: break
             }
         case .released(let command):
+            // Finish a button-drawn mark first, so the release counts as a hold that drew.
+            overlay.endPointerMark()
             update { $0.released(command, at: ProcessInfo.processInfo.systemUptime) }
         case .interrupted(let command):
             update { $0.interrupted(command) }
+        case .dragged(let command, let location):
+            guard session.heldCommand == command, isDrawing else { return }
+            overlay.dragPointerMark(to: location)
         }
     }
 

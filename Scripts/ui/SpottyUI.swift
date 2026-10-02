@@ -13,6 +13,7 @@ import CoreGraphics
 //     drag x,y x,y                    a left-button drag in global points from the top left of the main display
 //     click x,y                       a left click
 //     button 3 down|up                a middle (2) or side (3, 4) mouse button
+//     bdrag 5 x,y x,y                 a drag with that mouse button held from press to release
 //     wait 0.3                        seconds
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -88,6 +89,18 @@ func run(_ steps: String) {
                 mouse(.leftMouseDragged, CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t))
             }
             mouse(.leftMouseUp, to)
+        case "bdrag":
+            let number = Int64(words[1]) ?? 2
+            let from = point(words[2]), to = point(words[3])
+            mouse(.mouseMoved, from)
+            mouse(.otherMouseDown, from, button: .center, number: number)
+            usleep(400_000)
+            for index in 1...20 {
+                let t = CGFloat(index) / 20
+                mouse(.otherMouseDragged, CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t), button: .center, number: number)
+                usleep(10_000)
+            }
+            mouse(.otherMouseUp, to, button: .center, number: number)
         case "button":
             let number = Int64(words[1]) ?? 2
             let at = CGEvent(source: nil)?.location ?? .zero

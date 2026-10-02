@@ -80,9 +80,22 @@ final class OverlayView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        beginMark(at: convert(event.locationInWindow, from: nil), shift: event.modifierFlags.contains(.shift))
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        extendMark(to: convert(event.locationInWindow, from: nil), shift: event.modifierFlags.contains(.shift))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        mouseDragged(with: event)
+        finishLive()
+    }
+
+    /// Starts a mark at `point` in view coordinates, from a left drag or a held mouse button shortcut.
+    func beginMark(at point: CGPoint, shift: Bool) {
         guard let style = style() else { return }
         finishLive()
-        let point = convert(event.locationInWindow, from: nil)
         let color = style.tool == .highlighter ? style.highlighterColor.withAlpha(0.4) : style.color
         let mark = Mark(tool: style.tool, at: point, color: color, width: style.width)
         let layer = CAShapeLayer()
@@ -94,20 +107,13 @@ final class OverlayView: NSView {
         }
         withoutAnimation { content.addSublayer(layer) }
         live = (mark, layer)
-        update(event)
+        extendMark(to: point, shift: shift)
     }
 
-    override func mouseDragged(with event: NSEvent) { update(event) }
-
-    override func mouseUp(with event: NSEvent) {
-        update(event)
-        finishLive()
-    }
-
-    private func update(_ event: NSEvent) {
+    func extendMark(to point: CGPoint, shift: Bool) {
         guard var current = live else { return }
-        current.mark.add(convert(event.locationInWindow, from: nil))
-        current.mark.isConstrained = event.modifierFlags.contains(.shift) && (style()?.shiftConstrains ?? true)
+        current.mark.add(point)
+        current.mark.isConstrained = shift && (style()?.shiftConstrains ?? true)
         live = current
         render(current)
     }

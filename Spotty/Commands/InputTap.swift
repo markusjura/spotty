@@ -5,6 +5,7 @@ import Observation
 /// Watches modifier-only chords and middle or side mouse buttons through a session event tap.
 /// It exists only while such a binding is assigned and Accessibility access is granted, and it
 /// swallows only the mouse buttons it reports, so a bound side button never also means "Back".
+/// Dragging with a bound button held is reported too, so the button can draw on its own.
 /// Keyboard events always pass through unchanged.
 @MainActor @Observable
 final class InputTap {
@@ -73,7 +74,10 @@ final class InputTap {
         removeTap()
         var mask: CGEventMask = 0
         if chords { mask |= CGEventMask(1 << CGEventType.flagsChanged.rawValue) | CGEventMask(1 << CGEventType.keyDown.rawValue) }
-        if mouse { mask |= CGEventMask(1 << CGEventType.otherMouseDown.rawValue) | CGEventMask(1 << CGEventType.otherMouseUp.rawValue) }
+        if mouse {
+            mask |= CGEventMask(1 << CGEventType.otherMouseDown.rawValue) | CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
+                | CGEventMask(1 << CGEventType.otherMouseDragged.rawValue)
+        }
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                           eventsOfInterest: mask, callback: { _, type, event, userData in
             guard let userData else { return Unmanaged.passUnretained(event) }
@@ -134,6 +138,12 @@ final class InputTap {
             guard let command = bindings.first(where: { $0.value == pressed })?.key else { return false }
             heldButtons[button] = command
             handler(.pressed(command))
+            return true
+        case .otherMouseDragged:
+            // Moving with a bound button held draws, so the button works on its own, without a left drag.
+            let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
+            guard let command = heldButtons[button] else { return false }
+            handler(.dragged(command, event.location))
             return true
         case .otherMouseUp:
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))

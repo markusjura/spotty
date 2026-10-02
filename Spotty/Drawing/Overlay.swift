@@ -56,6 +56,7 @@ final class Overlay {
     /// Stops taking the mouse, then fades the drawings after `fadeAfter`, or keeps them for nil.
     func deactivate(fadeAfter: Duration?) {
         isActive = false
+        pointerView = nil
         for (panel, view) in panels.values {
             view.finishLive()
             panel.acceptsKey = false
@@ -70,6 +71,28 @@ final class Overlay {
             guard !Task.isCancelled else { return }
             self?.fadeOut()
         }
+    }
+
+    /// The view drawing a mark from a held mouse button shortcut, which AppKit never sees as a drag.
+    private var pointerView: OverlayView?
+
+    /// Starts or extends a mark at `location`, in Core Graphics global coordinates.
+    func dragPointerMark(to location: CGPoint) {
+        guard isActive, let primary = NSScreen.screens.first else { return }
+        let point = NSPoint(x: location.x, y: primary.frame.maxY - location.y)
+        let shift = NSEvent.modifierFlags.contains(.shift)
+        if let pointerView, let window = pointerView.window {
+            pointerView.extendMark(to: pointerView.convert(window.convertPoint(fromScreen: point), from: nil), shift: shift)
+            return
+        }
+        guard let (panel, view) = panels.values.first(where: { $0.panel.frame.contains(point) }) else { return }
+        pointerView = view
+        view.beginMark(at: view.convert(panel.convertPoint(fromScreen: point), from: nil), shift: shift)
+    }
+
+    func endPointerMark() {
+        pointerView?.finishLive()
+        pointerView = nil
     }
 
     func undo() {

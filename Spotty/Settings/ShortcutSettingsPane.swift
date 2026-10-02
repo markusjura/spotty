@@ -25,7 +25,7 @@ struct ShortcutSettingsPane: View {
     private func footer(for group: CommandGroup) -> some View {
         switch group {
         case .drawing:
-            Text("Hold a shortcut to draw until you let go. Tap it to keep drawing on, and tap it again or press Escape to stop. While holding one, press another to switch tools, such as ⌃⇧ and then A.")
+            Text("Hold a shortcut to draw until you let go. Tap it to keep drawing on, and tap it again or press Escape to stop. While holding one, press another to switch tools, such as ⌃⇧ and then A. While holding a mouse button, press a tool letter alone, such as A.")
                 .secondaryNote()
         case .actions:
             EmptyView()
@@ -61,8 +61,9 @@ struct ShortcutSettingsPane: View {
 
     /// Draw names the tool it starts with.
     private func title(for id: CommandID) -> String {
-        guard id == .draw else { return id.title }
-        return preferences.drawing.startTool.map { "Draw with \($0.title)" } ?? "Draw with Last Tool"
+        guard id == .draw || id == .drawAlternate else { return id.title }
+        let title = preferences.drawing.startTool.map { "Draw with \($0.title)" } ?? "Draw with Last Tool"
+        return id == .drawAlternate ? "\(title), Alternate" : title
     }
 
     private func report(_ result: [CommandID: ShortcutProblem], for ids: [CommandID]) {

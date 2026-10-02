@@ -22,7 +22,9 @@ final class CommandRegistryTests: XCTestCase {
         XCTAssertEqual(registry.shortcut(for: .drawArrow), Shortcut(kVK_ANSI_A, [.control, .shift]))
         XCTAssertEqual(registry.shortcut(for: .pickArrow), Shortcut(kVK_ANSI_A))
         XCTAssertTrue(registry.needsEventTap)
-        XCTAssertEqual(CommandID.allCases.filter { registry.shortcut(for: $0) == nil }, [], "Every default is valid and unique")
+        XCTAssertNil(registry.shortcut(for: .drawAlternate), "The alternate Draw shortcut starts unassigned")
+        XCTAssertEqual(CommandID.allCases.filter { $0.defaultShortcut != nil && registry.shortcut(for: $0) == nil }, [],
+                       "Every default is valid and unique")
     }
 
     func testRulesDependOnWhatTheShortcutDoes() {
@@ -40,6 +42,7 @@ final class CommandRegistryTests: XCTestCase {
         XCTAssertEqual(registry.problem(assigning: .mouse(3), to: .pickPen), .keysOnly)
         XCTAssertEqual(registry.problem(assigning: Shortcut(kVK_Escape), to: .pickPen), .reservedForDrawing)
         XCTAssertEqual(registry.problem(assigning: Shortcut(kVK_ANSI_A, [.control, .shift]), to: .drawPen), .conflict(.drawArrow))
+        XCTAssertEqual(registry.problem(assigning: .modifiers([.control, .shift]), to: .drawAlternate), .conflict(.draw))
     }
 
     func testCustomBindingsPersistAsOverridesAndRestoreCleanly() {

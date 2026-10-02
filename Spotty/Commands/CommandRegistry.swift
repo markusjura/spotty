@@ -28,13 +28,14 @@ enum CommandGroup: CaseIterable, Sendable {
 
 /// Stable IDs; custom bindings persist by raw value.
 enum CommandID: String, CaseIterable, Codable, Sendable {
-    case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawEllipse, drawSpotlight
+    case draw, drawAlternate, drawPen, drawHighlighter, drawArrow, drawRectangle, drawEllipse, drawSpotlight
     case undo, clear
     case pickPen, pickHighlighter, pickArrow, pickRectangle, pickEllipse, pickSpotlight
 
     var title: String {
         switch self {
         case .draw: "Draw"
+        case .drawAlternate: "Draw (Alternate)"
         case .undo: "Undo Last Drawing"
         case .clear: "Clear Drawings"
         default: tool!.title
@@ -43,7 +44,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var group: CommandGroup {
         switch self {
-        case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawEllipse, .drawSpotlight: .drawing
+        case .draw, .drawAlternate, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawEllipse, .drawSpotlight: .drawing
         case .undo, .clear: .actions
         case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickEllipse, .pickSpotlight: .whileDrawing
         }
@@ -59,7 +60,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var isGlobal: Bool { scope != .overlay }
 
-    /// Nil for `draw`, which starts with the configured start tool, and for actions.
+    /// Nil for `draw` and `drawAlternate`, which start with the configured start tool, and for actions.
     var tool: DrawingTool? {
         switch self {
         case .drawPen, .pickPen: .pen
@@ -68,7 +69,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
         case .drawRectangle, .pickRectangle: .rectangle
         case .drawEllipse, .pickEllipse: .ellipse
         case .drawSpotlight, .pickSpotlight: .spotlight
-        case .draw, .undo, .clear: nil
+        case .draw, .drawAlternate, .undo, .clear: nil
         }
     }
 
@@ -76,10 +77,12 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
     static func pick(_ tool: DrawingTool) -> CommandID { allCases.first { $0.scope == .overlay && $0.tool == tool }! }
 
     /// Fresh-install bindings: hold ⌃⇧ to draw, add a letter to choose the tool. The same letters
-    /// pick tools while drawing is toggled on.
+    /// pick tools while drawing is toggled on. The alternate Draw shortcut, typically a mouse
+    /// button, starts unassigned.
     var defaultShortcut: Shortcut? {
         switch self {
         case .draw: return .modifiers([.control, .shift])
+        case .drawAlternate: return nil
         case .undo: return Shortcut(kVK_ANSI_Z, [.control, .shift])
         case .clear: return Shortcut(kVK_Delete, [.control, .shift])
         default:

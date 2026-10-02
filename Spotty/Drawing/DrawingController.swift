@@ -72,7 +72,7 @@ final class DrawingController {
         Self.log.debug("\(String(describing: old.mode), privacy: .public) -> \(String(describing: self.session.mode), privacy: .public), \(self.session.tool.rawValue, privacy: .public)")
         if session.isActive && session.tool != preferences.drawing.lastTool { preferences.drawing.lastTool = session.tool }
         switch (old.mode, session.mode) {
-        case (.off, .holding): overlay.activate(keyboard: false)
+        case (.off, .holding): overlay.activate(keyboard: isHoldingMouseButton)
         case (.off, .latched): overlay.activate(keyboard: true); toolbar.show()
         case (.holding, .latched): overlay.setKeyboard(true); toolbar.show()
         case (_, .off) where old.mode != .off:
@@ -80,6 +80,13 @@ final class DrawingController {
             overlay.deactivate(fadeAfter: preferences.drawing.fade.interval)
         default: break
         }
+    }
+
+    /// A held mouse button leaves the keyboard free, so the overlay takes keys as when drawing is
+    /// toggled on and the plain tool letters switch tools. A held key chord leaves keys with the
+    /// app you are working in.
+    private var isHoldingMouseButton: Bool {
+        session.heldCommand.flatMap(commands.shortcut(for:))?.mouseButton != nil
     }
 
     private static let log = Logger(subsystem: "local.markus.Spotty", category: "drawing")
@@ -93,7 +100,7 @@ final class DrawingController {
                          shiftConstrains: !(held?.modifiers.contains(.shift) ?? false))
     }
 
-    /// Keys while drawing is toggled on: tool letters, Escape, and undo.
+    /// Keys while drawing is toggled on or a mouse button is held: tool letters, Escape, and undo.
     private func handleKey(_ event: NSEvent) -> Bool {
         let modifiers = Shortcut.Modifiers(flags: event.modifierFlags)
         switch (Int(event.keyCode), modifiers) {

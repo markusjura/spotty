@@ -53,20 +53,20 @@ final class DrawingController {
         }
     }
 
-    /// Undo and Clear, from shortcuts and menus.
+    /// Toggle Drawing, Undo, and Clear, from shortcuts and menus.
     func perform(_ command: CommandID) {
         switch command {
+        case .toggleDrawing:
+            let startTool = preferences.drawing.resolvedStartTool
+            update { $0.toggleDrawing(startTool: startTool) }
         case .undo: overlay.undo()
         case .clear: overlay.clear()
         default: break
         }
     }
 
-    /// Menu items: toggles drawing with `tool`, or with the start tool for nil.
-    func toggle(_ tool: DrawingTool? = nil) {
-        let tool = tool ?? (isDrawing ? session.tool : preferences.drawing.resolvedStartTool)
-        update { $0.toggle(tool) }
-    }
+    /// Tool menu items: toggles drawing with `tool`.
+    func toggle(_ tool: DrawingTool) { update { $0.toggle(tool) } }
 
     func pick(_ tool: DrawingTool) { update { $0.pick(tool) } }
 

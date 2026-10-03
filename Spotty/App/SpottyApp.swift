@@ -33,8 +33,8 @@ private struct SpottyMenu: View {
 
     var body: some View {
         let commands = drawing.commands
-        Button(drawing.isDrawing ? "Stop Drawing" : "Draw") { drawing.toggle() }
-            .keyboardShortcut(commands.shortcut(for: .draw)?.keyboardShortcut)
+        Button(drawing.isDrawing ? "Stop Drawing" : "Draw") { drawing.perform(.toggleDrawing) }
+            .keyboardShortcut(commands.shortcut(for: .toggleDrawing)?.keyboardShortcut)
         Divider()
         ForEach(DrawingTool.allCases, id: \.self) { tool in
             Toggle(isOn: Binding(get: { drawing.isDrawing && drawing.session.tool == tool }, set: { _ in drawing.toggle(tool) })) {

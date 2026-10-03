@@ -29,12 +29,13 @@ enum CommandGroup: CaseIterable, Sendable {
 /// Stable IDs; custom bindings persist by raw value.
 enum CommandID: String, CaseIterable, Codable, Sendable {
     case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawSpotlight
-    case undo, clear
+    case toggleDrawing, undo, clear
     case pickPen, pickHighlighter, pickArrow, pickRectangle, pickSpotlight
 
     var title: String {
         switch self {
         case .draw: "Draw"
+        case .toggleDrawing: "Toggle Drawing"
         case .undo: "Undo Last Drawing"
         case .clear: "Clear Drawings"
         default: tool!.title
@@ -44,7 +45,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
     var group: CommandGroup {
         switch self {
         case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawSpotlight: .drawing
-        case .undo, .clear: .actions
+        case .toggleDrawing, .undo, .clear: .actions
         case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickSpotlight: .whileDrawing
         }
     }
@@ -67,7 +68,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
         case .drawArrow, .pickArrow: .arrow
         case .drawRectangle, .pickRectangle: .rectangle
         case .drawSpotlight, .pickSpotlight: .spotlight
-        case .draw, .undo, .clear: nil
+        case .draw, .toggleDrawing, .undo, .clear: nil
         }
     }
 
@@ -82,6 +83,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
     var defaultShortcut: Shortcut? {
         switch self {
         case .draw: return .modifiers([.control, .shift])
+        case .toggleDrawing: return Shortcut(kVK_ANSI_D, [.control, .shift])
         case .undo: return Shortcut(kVK_ANSI_Z, [.control, .shift])
         case .clear: return Shortcut(kVK_Delete, [.control, .shift])
         default:

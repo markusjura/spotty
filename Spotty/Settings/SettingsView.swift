@@ -63,6 +63,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(SettingsFormStyle())
+            .endsTextEditingOnReturnOrClickAway()
             .id(pane)
             // The canvas also fills the toolbar above the pane.
             .background(SettingsColor.canvas.ignoresSafeArea())

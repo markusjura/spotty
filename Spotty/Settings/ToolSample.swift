@@ -12,8 +12,11 @@ enum ToolSample {
         let mark = sampleMark(tool, style: style)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            let card = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
             NSColor.labelColor.withAlphaComponent(0.06).setFill()
-            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+            card.fill()
+            // Keeps the spotlight's dimming inside the card's rounded corners.
+            card.addClip()
             context.scaleBy(x: scale, y: scale)
             NSColor.labelColor.withAlphaComponent(0.14).setFill()
             for (y, length) in [(38.0, 160.0), (25.0, 160.0), (12.0, 90.0)] {

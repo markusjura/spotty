@@ -36,9 +36,18 @@ xcodebuild -project Spotty.xcodeproj -scheme Spotty -configuration Debug -destin
 Scripts/run.sh dev
 ```
 
-`Scripts/build.sh` builds the signed Release app at `.build/Build/Products/Release/Spotty.app`. `Scripts/run.sh dev` rebuilds the Debug app and relaunches it; `Scripts/run.sh installed` switches back to `/Applications/Spotty.app`. The target uses Hardened Runtime, no App Sandbox, and no entitlements. This is private Apple Development signing, not a notarized Developer ID release, so a copied build may not launch as trusted on another Mac.
+`Scripts/build.sh` builds the signed Release app at `.build/Build/Products/Release/Spotty.app`. The target uses Hardened Runtime, no App Sandbox, and no entitlements. This is private Apple Development signing, not a notarized Developer ID release, so a copied build may not launch as trusted on another Mac.
 
 `Scripts/GenerateAppIcon.swift` draws the app icon and the menu bar icon from one glyph. Run `swift Scripts/GenerateAppIcon.swift` after changing it.
+
+## Develop
+
+```sh
+Scripts/run.sh dev        # build Debug and switch to Spotty Dev
+Scripts/run.sh installed  # switch back to /Applications/Spotty.app
+```
+
+The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its own preferences and permission grants, so it never touches the installed Spotty's settings, and Spotlight and Raycast list it separately. The two share global shortcuts, so only one runs: `run.sh` quits both before launching one, and Spotty Dev quits the installed build when it launches and quits itself when the installed build launches. That check exists only in Debug builds. To start Spotty Dev with your current settings, run `defaults export local.markus.Spotty - | defaults import local.markus.Spotty.dev -` while both are quit.
 
 ## Package, install, and roll back
 
@@ -69,7 +78,7 @@ A Mac that receives Spotty for the first time leaves it closed. Open it once the
 
 ## Permissions
 
-Grant permissions to the installed `/Applications/Spotty.app`, not to a build in `.build`. Grants are per Mac; signing does not carry them to another machine.
+Grant permissions to the installed `/Applications/Spotty.app`. Spotty Dev has its own bundle ID, so it needs its own grants once; they then survive rebuilds. Grants are per Mac; signing does not carry them to another machine.
 
 - **Accessibility** is needed only for modifier-only shortcuts, such as the default ⌃⇧, and for mouse button shortcuts. Spotty asks once on first launch. Shortcuts with a key, such as ⌃⇧A, work without it, through the same hotkey API Shotty uses.
 - Screen Recording, Input Monitoring, and every other permission are not needed. Spotty draws over the screen; it never reads it.

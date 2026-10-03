@@ -236,8 +236,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = local.markus.Spotty;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = local.markus.Spotty.dev;
+				PRODUCT_MODULE_NAME = Spotty;
+				PRODUCT_NAME = "Spotty Dev";
 			};
 			name = Debug;
 		};
@@ -279,7 +280,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = local.markus.SpottyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Spotty.app/Contents/MacOS/Spotty";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Spotty Dev.app/Contents/MacOS/Spotty Dev";
 			};
 			name = Debug;
 		};

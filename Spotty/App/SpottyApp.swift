@@ -64,10 +64,16 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
     private var hotKeys: GlobalHotKeyCenter?
     /// macOS shows its Accessibility prompt once, on first launch, when a default needs it.
     private static let accessibilityRequestedKey = "accessibilityRequested"
+    #if DEBUG
+    private var installedLaunchObservation: NSKeyValueObservation?
+    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 700])
         guard NSClassFromString("XCTestCase") == nil else { return }
+        #if DEBUG
+        keepOneSpottyRunning()
+        #endif
         observePreferences()
         BackgroundCursor.enable()
         hotKeys = GlobalHotKeyCenter(registry: commands) { [weak self] in self?.drawing.handle($0) }
@@ -78,6 +84,21 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
             inputTap.requestAccess()
         }
     }
+
+    #if DEBUG
+    /// Spotty Dev and the installed Spotty share global shortcuts, so only the one opened last keeps
+    /// running. Launching Spotty Dev quits the installed build, and launching the installed build
+    /// quits Spotty Dev. Only Debug builds carry this, so the installed build has no launch-time checks.
+    private func keepOneSpottyRunning() {
+        let installedID = "local.markus.Spotty"
+        NSRunningApplication.runningApplications(withBundleIdentifier: installedID).forEach { $0.terminate() }
+        installedLaunchObservation = NSWorkspace.shared.observe(\.runningApplications, options: [.new]) { _, change in
+            guard change.newValue?.contains(where: { $0.bundleIdentifier == installedID }) == true else { return }
+            // Quit from the next run loop pass, outside the KVO callback.
+            RunLoop.main.perform { NSApp.terminate(nil) }
+        }
+    }
+    #endif
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 

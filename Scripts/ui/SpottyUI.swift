@@ -6,7 +6,7 @@ import CoreGraphics
 // Posting events needs Accessibility access for the app running this tool, such as the terminal.
 //
 // Usage:
-//   spotty-ui windows                 Spotty's on-screen windows: id, layer, bounds, alpha
+//   spotty-ui windows                 on-screen windows of Spotty Dev if it runs, else of Spotty: id, layer, bounds, alpha
 //   spotty-ui run "<steps>"           Posts steps separated by ';' in one process:
 //     mods ctrl,shift                 sets held modifiers (posts flagsChanged); `mods` alone releases them
 //     key a | keydown a | keyup a     a key with the held modifiers (letters, digits, esc, delete, space)
@@ -17,6 +17,9 @@ import CoreGraphics
 //     wait 0.3                        seconds
 
 let arguments = Array(CommandLine.arguments.dropFirst())
+/// Spotty Dev when it runs, else the installed Spotty. Only one of them runs at a time.
+let spotty = ["local.markus.Spotty.dev", "local.markus.Spotty"].lazy
+    .compactMap { NSRunningApplication.runningApplications(withBundleIdentifier: $0).first }.first
 let source = CGEventSource(stateID: .hidSystemState)
 var flags: CGEventFlags = []
 
@@ -111,8 +114,9 @@ func run(_ steps: String) {
 }
 
 func windows() {
+    guard let spotty else { print("Neither Spotty Dev nor Spotty is running."); exit(1) }
     let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-    for window in list where window[kCGWindowOwnerName as String] as? String == "Spotty" {
+    for window in list where window[kCGWindowOwnerPID as String] as? pid_t == spotty.processIdentifier {
         let bounds = window[kCGWindowBounds as String] as? [String: Double] ?? [:]
         print("id \(window[kCGWindowNumber as String] ?? 0) layer \(window[kCGWindowLayer as String] ?? 0)",
               "bounds \(Int(bounds["X"] ?? 0)),\(Int(bounds["Y"] ?? 0)) \(Int(bounds["Width"] ?? 0))x\(Int(bounds["Height"] ?? 0))",

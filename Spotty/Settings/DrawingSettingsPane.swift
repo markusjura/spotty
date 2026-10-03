@@ -1,16 +1,20 @@
 import SwiftUI
 
-/// Starting tool, styles, and what happens to drawings afterwards. Each tool's collapsed group shows
-/// only the options it draws with. Pen, arrow, rectangle, and spotlight start from the default style
-/// and can override it per option; the highlighter has its own style. The toolbar's color menu
-/// changes the same colors while drawing.
+/// How drawing behaves, the default style, and each tool's style. A tool's collapsed row previews
+/// its current look; expanded, it shows only the options that tool draws with. Pen, arrow, and
+/// rectangle follow the default color and width unless changed; the highlighter has its own.
+/// The toolbar's color menu changes the same colors while drawing.
 struct DrawingSettingsPane: View {
     @Bindable var preferences: AppPreferences
     @State private var expanded: Set<DrawingTool> = []
 
+    /// Tool options start under the tool's name: chevron, icon, and spacing columns.
+    private static let chevronWidth: CGFloat = 18, iconWidth: CGFloat = 26, nameGap: CGFloat = 6
+    private static let optionIndent = chevronWidth + iconWidth + nameGap
+
     var body: some View {
         Form {
-            Section {
+            Section("Behavior") {
                 Picker("Draw starts with", selection: $preferences.drawing.startTool) {
                     Text("Last used tool").tag(DrawingTool?.none)
                     Divider()
@@ -18,43 +22,9 @@ struct DrawingSettingsPane: View {
                         Label(tool.title, systemImage: tool.symbol).tag(DrawingTool?.some(tool))
                     }
                 }
-                Text("Tool shortcuts always start with their own tool.").secondaryNote()
-            }
-            Section("Default style") {
-                ColorPalettePicker("Color", selection: $preferences.drawing.color)
-                LabeledContent("Line width") {
-                    ValueSlider("Line width", value: $preferences.drawing.lineWidth, in: DrawingPreferences.widthRange, unit: "pt")
-                        .padding(.trailing, ResetButton.width)
-                }
-                LabeledContent("Corner radius") {
-                    ValueSlider("Corner radius", value: $preferences.drawing.cornerRadius, in: DrawingPreferences.cornerRadiusRange, unit: "pt")
-                        .padding(.trailing, ResetButton.width)
-                }
-                Text("Tools use these unless you change them below.").secondaryNote()
-            }
-            Section("Tools") {
-                ForEach(DrawingTool.allCases, id: \.self) { tool in
-                    DisclosureGroup(isExpanded: Binding(get: { expanded.contains(tool) },
-                                                        set: { if $0 { expanded.insert(tool) } else { expanded.remove(tool) } })) {
-                        // Grouped forms draw no separators inside a disclosure group, so each option brings its own.
-                        Group(subviews: options(for: tool)) { rows in
-                            ForEach(rows) { row in
-                                VStack(spacing: 0) {
-                                    Divider()
-                                    row.padding(.vertical, 3)
-                                }
-                                .padding(.leading, 28)
-                            }
-                        }
-                    } label: {
-                        LabeledContent { summary(of: tool) } label: { Label(tool.title, systemImage: tool.symbol) }
-                    }
-                }
-            }
-            Section {
                 Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
                 LabeledContent("Fade after") {
-                    HStack {
+                    HStack(spacing: 3) {
                         // Parses with the user's locale, so a German Mac takes 1,5. Out of range values snap to the nearest limit.
                         let range = DrawingPreferences.fadeDelayRange
                         TextField("Fade after", value: Binding(get: { preferences.drawing.fadeDelay },
@@ -62,44 +32,136 @@ struct DrawingSettingsPane: View {
                                   format: .number.precision(.fractionLength(0...2)))
                             .labelsHidden()
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 60)
-                        Text("seconds")
+                            .monospacedDigit()
+                            .frame(width: 48)
+                        Text("seconds").foregroundStyle(.secondary)
                     }
                 }
                 .disabled(!preferences.drawing.fadesDrawings)
-                Text(preferences.drawing.fadesDrawings
-                     ? "Each drawing fades on its own timer, counted from when you finish it. Spotlights disappear when you let go."
-                     : "Drawings stay on screen until you clear them. Clicks pass through them.")
-                    .secondaryNote()
+            }
+            Section("Default style") {
+                LabeledContent("Color") { ColorPalettePicker("Color", selection: $preferences.drawing.color) }
+                LabeledContent("Line width") {
+                    ValueSlider("Line width", value: $preferences.drawing.lineWidth, in: DrawingPreferences.widthRange, unit: "pt")
+                }
+                Text("Pen, arrow, and rectangle use these unless you change them below.").secondaryNote()
+            }
+            Section("Tool styles") {
+                ForEach(DrawingTool.allCases, id: \.self) { tool in
+                    header(tool)
+                    if expanded.contains(tool) { options(for: tool) }
+                }
             }
         }
     }
 
-    /// Only the options each tool draws with.
+    /// The tool's disclosure row with a preview of its current look.
+    private func header(_ tool: DrawingTool) -> some View {
+        let isExpanded = expanded.contains(tool)
+        return Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                if isExpanded { expanded.remove(tool) } else { expanded.insert(tool) }
+            }
+        } label: {
+            HStack(spacing: 0) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: Self.chevronWidth)
+                Image(systemName: tool.symbol).frame(width: Self.iconWidth)
+                Text(tool.title).padding(.leading, Self.nameGap)
+                Spacer()
+                Image(nsImage: ToolSample.preview(tool, preferences.drawing))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tool.title)
+        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+    }
+
+    /// Only the options each tool draws with, one form row each.
     @ViewBuilder
     private func options(for tool: DrawingTool) -> some View {
+        let drawing = $preferences.drawing
         switch tool {
-        case .pen, .arrow:
-            overrideRow("Color", tool, \.color, fallback: \.color) { ColorPalettePicker("Color", selection: $0) }
+        case .pen:
+            styleRow("Style", tool, drawing.penPattern)
+            colorRow(tool)
             widthRow(tool)
-        case .rectangle:
-            overrideRow("Color", tool, \.color, fallback: \.color) { ColorPalettePicker("Color", selection: $0) }
-            widthRow(tool)
-            radiusRow(tool)
         case .highlighter:
-            ColorPalettePicker("Color", selection: $preferences.drawing.highlighterColor)
-                .padding(.trailing, ResetButton.width)
-            LabeledContent("Line width") {
-                ValueSlider("Line width", value: $preferences.drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
-                    .padding(.trailing, ResetButton.width)
+            styleRow("Tip", tool, drawing.highlighterTip)
+            option("Color") { ColorPalettePicker("Color", selection: drawing.highlighterColor) }
+            option("Line width") {
+                ValueSlider("Line width", value: drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
+            }
+            LabeledContent {
+                Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch)
+            } label: {
+                optionLabel("Straighten strokes", note: "Shift always draws a straight line.")
+            }
+            LabeledContent {
+                ValueSlider("Tolerance", value: drawing.straightenTolerance, in: DrawingPreferences.straightenToleranceRange, unit: "pt")
+            } label: {
+                optionLabel("Tolerance", note: "How much a stroke may waver.")
+            }
+            .disabled(!preferences.drawing.straightensHighlighter)
+        case .arrow:
+            styleRow("Style", tool, drawing.arrowStyle)
+            colorRow(tool)
+            widthRow(tool)
+            option("Corner radius") {
+                ValueSlider("Corner radius", value: drawing.arrowCornerRadius, in: DrawingPreferences.arrowCornerRadiusRange, unit: "pt")
+            }
+        case .rectangle:
+            styleRow("Style", tool, drawing.rectangleStyle)
+            colorRow(tool)
+            widthRow(tool)
+            option("Corner radius") {
+                ValueSlider("Corner radius", value: drawing.rectangleCornerRadius, in: DrawingPreferences.cornerRadiusRange, unit: "pt")
             }
         case .spotlight:
-            radiusRow(tool)
-            LabeledContent("Dimming") {
-                ValueSlider("Dimming", value: $preferences.drawing.spotlightDimming, in: DrawingPreferences.dimmingRange, step: 5, unit: "%")
-                    .padding(.trailing, ResetButton.width)
+            option("Corner radius") {
+                ValueSlider("Corner radius", value: drawing.spotlightCornerRadius, in: DrawingPreferences.cornerRadiusRange, unit: "pt")
+            }
+            option("Dimming") {
+                ValueSlider("Dimming", value: drawing.spotlightDimming, in: DrawingPreferences.dimmingRange, step: 5, unit: "%")
             }
         }
+    }
+
+    private func optionLabel(_ title: String, note: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            if let note { Text(note).font(.callout).foregroundStyle(.secondary) }
+        }
+        .padding(.leading, Self.optionIndent)
+    }
+
+    private func option(_ title: String, @ViewBuilder control: () -> some View) -> some View {
+        LabeledContent { control() } label: { optionLabel(title) }
+    }
+
+    /// The style choices as a segmented control of rendered samples.
+    private func styleRow<Choice: StyleChoice>(_ title: String, _ tool: DrawingTool, _ selection: Binding<Choice>) -> some View {
+        let base = preferences.drawing.style(for: tool)
+        return option(title) {
+            Picker(title, selection: selection) {
+                ForEach(Choice.allCases, id: \.self) { choice in
+                    Image(nsImage: ToolSample.glyph(tool, choice.sampleStyle(base), title: choice.title))
+                        .accessibilityLabel(choice.title)
+                        .tag(choice)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
+    private func colorRow(_ tool: DrawingTool) -> some View {
+        overrideRow("Color", tool, \.color, fallback: \.color) { ColorPalettePicker("Color", selection: $0) }
     }
 
     private func widthRow(_ tool: DrawingTool) -> some View {
@@ -108,13 +170,7 @@ struct DrawingSettingsPane: View {
         }
     }
 
-    private func radiusRow(_ tool: DrawingTool) -> some View {
-        overrideRow("Corner radius", tool, \.cornerRadius, fallback: \.cornerRadius) {
-            ValueSlider("Corner radius", value: $0, in: DrawingPreferences.cornerRadiusRange, unit: "pt")
-        }
-    }
-
-    /// A tool option that shows the default style's value until changed. Changing it sets the
+    /// A default-style option that shows the default value until changed. Changing it sets the
     /// tool's own value; the reset button makes the tool follow the default style again.
     private func overrideRow<Value: Equatable, Control: View>(
         _ title: String, _ tool: DrawingTool, _ property: WritableKeyPath<StyleOverrides, Value?>,
@@ -127,24 +183,10 @@ struct DrawingSettingsPane: View {
             guard $0 != current else { return }
             preferences.drawing[overrides: tool][keyPath: property] = $0
         }
-        return LabeledContent(title) {
-            HStack(spacing: 0) {
-                control(value).labelsHidden()
-                ResetButton(isVisible: isCustom) { preferences.drawing[overrides: tool][keyPath: property] = nil }
-            }
-        }
-    }
-
-    /// The tool's color and width, or the dimming for spotlights, so collapsed groups still show their look.
-    @ViewBuilder
-    private func summary(of tool: DrawingTool) -> some View {
-        if tool == .spotlight {
-            Text("\(Int(preferences.drawing.spotlightDimming))% dimming")
-        } else {
-            let style = preferences.drawing.style(for: tool)
+        return option(title) {
             HStack(spacing: 6) {
-                ColorDot(color: style.color, size: 10)
-                Text("\(style.width.formatted()) pt").monospacedDigit()
+                ResetButton(isVisible: isCustom) { preferences.drawing[overrides: tool][keyPath: property] = nil }
+                control(value)
             }
         }
     }
@@ -166,25 +208,24 @@ private struct ColorPalettePicker: View {
                 Label { Text(swatch.name) } icon: { ColorDot(color: swatch.color, size: 12) }.tag(swatch.color)
             }
         }
+        .labelsHidden()
+        .fixedSize()
     }
 }
 
-/// Follows the default style again. Hidden rows keep its space, so controls stay aligned.
+/// Follows the default style again. Shown only beside a tool's own value.
 private struct ResetButton: View {
-    static let width: CGFloat = 26
     let isVisible: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "arrow.uturn.backward")
+        if isVisible {
+            Button(action: action) {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .buttonStyle(.borderless)
+            .help("Use default style")
+            .accessibilityLabel("Use default style")
         }
-        .buttonStyle(.borderless)
-        .help("Use default style")
-        .accessibilityLabel("Use default style")
-        .frame(width: Self.width, alignment: .trailing)
-        .opacity(isVisible ? 1 : 0)
-        .disabled(!isVisible)
-        .accessibilityHidden(!isVisible)
     }
 }

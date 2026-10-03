@@ -4,10 +4,8 @@ import QuartzCore
 /// What a new mark looks like, read when a drag starts.
 struct MarkStyle: Equatable {
     var tool: DrawingTool
-    /// The tool's color, opaque. Highlighters draw it translucent.
-    var color: RGBAColor
-    var width: CGFloat
-    var cornerRadius: CGFloat
+    /// The tool's style, with an opaque color. Highlighters draw it translucent.
+    var style: ToolStyle
     /// Spotlight dimming, 0...1.
     var dimming: CGFloat
     /// False while Shift belongs to the held drawing shortcut, as in ⌃⇧.
@@ -103,12 +101,10 @@ final class OverlayView: NSView {
     func beginMark(at point: CGPoint, shift: Bool) {
         guard let style = style() else { return }
         finishLive()
-        let color = style.tool == .highlighter ? style.color.withAlpha(0.4) : style.color
-        let mark = Mark(tool: style.tool, at: point, color: color, width: style.width, cornerRadius: style.cornerRadius)
+        var markStyle = style.style
+        if style.tool == .highlighter { markStyle.color = markStyle.color.withAlpha(0.4) }
+        let mark = Mark(tool: style.tool, at: point, style: markStyle)
         let layer = CAShapeLayer()
-        layer.lineCap = .round
-        // Round joins would soften a rectangle's hard corners.
-        layer.lineJoin = style.tool == .rectangle ? .miter : .round
         if style.tool == .spotlight {
             currentDimming = style.dimming
             layer.isHidden = true
@@ -144,21 +140,24 @@ final class OverlayView: NSView {
 
     private func render(_ item: Drawn) {
         withoutAnimation {
-            let shape = item.mark.shape
             if item.mark.tool == .spotlight {
                 updateDimming()
                 return
             }
+            let paint = item.mark.paint, color = item.mark.style.color
             // Nothing shows until the drag is long enough to keep, so a click draws no lone arrowhead.
-            item.layer.path = item.mark.isEmpty ? nil : shape.path
-            item.layer.fillColor = shape.filled ? item.mark.color.cgColor : nil
-            item.layer.strokeColor = shape.filled ? nil : item.mark.color.cgColor
+            item.layer.path = item.mark.isEmpty ? nil : paint.path
+            item.layer.fillColor = paint.fill > 0 ? color.withAlpha(color.alpha * paint.fill).cgColor : nil
+            item.layer.strokeColor = paint.stroke ? color.cgColor : nil
             item.layer.lineWidth = item.mark.width
+            item.layer.lineDashPattern = paint.dash.isEmpty ? nil : paint.dash.map { NSNumber(value: Double($0)) }
+            item.layer.lineCap = switch paint.cap { case .butt: .butt; case .square: .square; default: .round }
+            item.layer.lineJoin = switch paint.join { case .miter: .miter; case .bevel: .bevel; default: .round }
         }
     }
 
     private func updateDimming() {
-        let spotlights = (marks + [live].compactMap { $0 }).filter { $0.mark.tool == .spotlight }.map(\.mark.shape.path)
+        let spotlights = (marks + [live].compactMap { $0 }).filter { $0.mark.tool == .spotlight }.map(\.mark.paint.path)
         withoutAnimation {
             dimming.isHidden = spotlights.isEmpty
             dimming.opacity = Float(currentDimming)

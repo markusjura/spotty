@@ -63,26 +63,46 @@ struct RGBAColor: Codable, Hashable, Sendable {
     }
 }
 
-/// Values one tool sets apart from the default style. Nil follows the default style.
+/// Pen strokes and rectangle outlines.
+enum StrokePattern: String, Codable, CaseIterable, Sendable { case solid, dashed, dotted }
+enum HighlighterTip: String, Codable, CaseIterable, Sendable { case round, flat }
+/// Open draws the head as two strokes; curved bends toward where the drag went.
+enum ArrowStyle: String, Codable, CaseIterable, Sendable { case standard, open, double, curved }
+/// Tinted adds a light fill inside the outline.
+enum RectangleStyle: String, Codable, CaseIterable, Sendable { case outline, dashed, tinted }
+
+/// Default-style values one tool sets apart. Nil follows the default style.
 struct StyleOverrides: Codable, Hashable, Sendable {
     var color: RGBAColor?
     var width: Double?
-    var cornerRadius: Double?
 
     var isEmpty: Bool { self == StyleOverrides() }
 }
 
-/// The look of a tool's new marks, with its overrides applied over the default style.
+/// How a tool's new marks look, resolved from the default style and the tool's own options.
+/// Each tool reads only the fields that apply to it.
 struct ToolStyle: Equatable, Sendable {
     var color: RGBAColor
     var width: Double
-    var cornerRadius: Double
+    /// Rectangles, spotlights, and arrow heads and tails. Zero draws hard corners.
+    var cornerRadius = 0.0
+    /// Pens and rectangles.
+    var pattern = StrokePattern.solid
+    var arrow = ArrowStyle.standard
+    /// Rectangles: a light fill inside the outline.
+    var isTinted = false
+    /// Highlighters: square stroke ends instead of round ones.
+    var hasFlatTips = false
+    /// Highlighters: how far a stroke may waver and still straighten into a line; nil keeps it freehand.
+    var straightenTolerance: Double?
 }
 
 struct DrawingPreferences: Codable, Equatable, Sendable {
     static let widthRange = 1.0...24.0
     static let highlighterWidthRange = 4.0...48.0
     static let cornerRadiusRange = 0.0...40.0
+    static let arrowCornerRadiusRange = 0.0...12.0
+    static let straightenToleranceRange = 2.0...20.0
     static let dimmingRange = 20.0...80.0
     static let fadeDelayRange = 0.5...600.0
 
@@ -90,42 +110,69 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var startTool: DrawingTool?
     /// Remembered across launches for `startTool == nil`.
     var lastTool = DrawingTool.highlighter
-
-    // The default style. Pen, arrow, and rectangle use all of it; spotlights use the corner radius.
-    var color = RGBAColor.annotationRed
-    var lineWidth = 4.0
-    /// In points. Zero draws hard corners.
-    var cornerRadius = 0.0
-    /// Pen, arrow, rectangle, and spotlight values that differ from the default style.
-    var overrides: [DrawingTool: StyleOverrides] = [:]
-
-    /// The highlighter has its own style, drawn translucent like a marker.
-    var highlighterColor = RGBAColor.highlighterYellow
-    var highlighterWidth = 16.0
-    /// How dark the screen gets around spotlights, in percent.
-    var spotlightDimming = 50.0
-
     /// Off keeps drawings until cleared.
     var fadesDrawings = true
     /// Seconds each drawing stays after you finish it.
     var fadeDelay = 2.0
 
+    // The default style, shared by pen, arrow, and rectangle.
+    var color = RGBAColor.annotationRed
+    var lineWidth = 4.0
+    /// Pen, arrow, and rectangle values that differ from the default style.
+    var overrides: [DrawingTool: StyleOverrides] = [:]
+
+    var penPattern = StrokePattern.solid
+
+    /// The highlighter has its own color and width, drawn translucent like a marker.
+    var highlighterColor = RGBAColor.highlighterYellow
+    var highlighterWidth = 16.0
+    var highlighterTip = HighlighterTip.flat
+    var straightensHighlighter = false
+    var straightenTolerance = 6.0
+
+    var arrowStyle = ArrowStyle.standard
+    var arrowCornerRadius = 2.0
+
+    var rectangleStyle = RectangleStyle.outline
+    var rectangleCornerRadius = 0.0
+
+    var spotlightCornerRadius = 0.0
+    /// How dark the screen gets around spotlights, in percent.
+    var spotlightDimming = 50.0
+
     var isValid: Bool {
         color.isValid && highlighterColor.isValid && Self.widthRange.contains(lineWidth)
-            && Self.highlighterWidthRange.contains(highlighterWidth) && Self.cornerRadiusRange.contains(cornerRadius)
+            && Self.highlighterWidthRange.contains(highlighterWidth)
             && overrides.values.allSatisfy { custom in
                 custom.color?.isValid ?? true && custom.width.map(Self.widthRange.contains) ?? true
-                    && custom.cornerRadius.map(Self.cornerRadiusRange.contains) ?? true
             }
+            && Self.straightenToleranceRange.contains(straightenTolerance)
+            && Self.arrowCornerRadiusRange.contains(arrowCornerRadius)
+            && Self.cornerRadiusRange.contains(rectangleCornerRadius) && Self.cornerRadiusRange.contains(spotlightCornerRadius)
             && Self.dimmingRange.contains(spotlightDimming) && Self.fadeDelayRange.contains(fadeDelay)
     }
 
     /// How new marks of `tool` look.
     func style(for tool: DrawingTool) -> ToolStyle {
-        if tool == .highlighter { return ToolStyle(color: highlighterColor, width: highlighterWidth, cornerRadius: 0) }
-        let custom = overrides[tool]
-        return ToolStyle(color: custom?.color ?? color, width: custom?.width ?? lineWidth,
-                         cornerRadius: custom?.cornerRadius ?? cornerRadius)
+        let custom = self[overrides: tool]
+        var style = ToolStyle(color: custom.color ?? color, width: custom.width ?? lineWidth)
+        switch tool {
+        case .pen:
+            style.pattern = penPattern
+        case .highlighter:
+            style = ToolStyle(color: highlighterColor, width: highlighterWidth, hasFlatTips: highlighterTip == .flat,
+                              straightenTolerance: straightensHighlighter ? straightenTolerance : nil)
+        case .arrow:
+            style.arrow = arrowStyle
+            style.cornerRadius = arrowCornerRadius
+        case .rectangle:
+            style.pattern = rectangleStyle == .dashed ? .dashed : .solid
+            style.isTinted = rectangleStyle == .tinted
+            style.cornerRadius = rectangleCornerRadius
+        case .spotlight:
+            style.cornerRadius = spotlightCornerRadius
+        }
+        return style
     }
 
     /// The toolbar's color menu. A tool with its own color changes only that; otherwise the
@@ -151,4 +198,21 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
 
     /// The tool Draw starts with now.
     var resolvedStartTool: DrawingTool { startTool ?? lastTool }
+
+    /// Build 11 kept one corner radius in the default style, which tools could override. Rectangles
+    /// and spotlights now keep their own, starting from the radius they drew with.
+    static func migrate(_ stored: [String: Any]) -> [String: Any] {
+        var stored = stored
+        guard let radius = stored.removeValue(forKey: "cornerRadius") as? Double else { return stored }
+        let overrides = stored["overrides"] as? [String: [String: Any]] ?? [:]
+        for (tool, key) in [(DrawingTool.rectangle, "rectangleCornerRadius"), (.spotlight, "spotlightCornerRadius")] where stored[key] == nil {
+            stored[key] = overrides[tool.rawValue]?["cornerRadius"] as? Double ?? radius
+        }
+        // Overrides no longer hold a radius; drop entries left empty without it.
+        stored["overrides"] = overrides.compactMapValues { custom in
+            let rest = custom.filter { $0.key != "cornerRadius" }
+            return rest.isEmpty ? nil : rest
+        }
+        return stored
+    }
 }

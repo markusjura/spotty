@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Design tokens for Spotty's floating chrome, shared with Shotty: the drawing overlay and the
 /// toolbar shown while drawing is toggled on. The toolbar uses Shotty's editor bar metrics and
-/// its capsule tool strip. Settings uses standard system forms and controls.
+/// its capsule tool strip. Settings draws its own colors, in SettingsTheme.
 @MainActor
 enum Chrome {
     /// The drawing overlay sits just below the cursor: above app windows, full-screen apps,
@@ -60,11 +60,4 @@ struct BarButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == BarButtonStyle {
     static var bar: Self { .init() }
     static var barProminent: Self { .init(isProminent: true) }
-}
-
-extension View {
-    /// Secondary explanatory text under a control or message.
-    func secondaryNote() -> some View {
-        font(.callout).foregroundStyle(.secondary)
-    }
 }

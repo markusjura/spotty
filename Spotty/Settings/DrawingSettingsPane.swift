@@ -22,6 +22,7 @@ struct DrawingSettingsPane: View {
                         Label(tool.title, systemImage: tool.symbol).tag(DrawingTool?.some(tool))
                     }
                 }
+                .buttonStyle(.borderless)
                 Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
                 LabeledContent("Fade after") {
                     HStack(spacing: 3) {
@@ -34,7 +35,7 @@ struct DrawingSettingsPane: View {
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                             .frame(width: 48)
-                        Text("seconds").foregroundStyle(.secondary)
+                        Text("seconds").settingsValue()
                     }
                 }
                 .disabled(!preferences.drawing.fadesDrawings)
@@ -44,7 +45,7 @@ struct DrawingSettingsPane: View {
                 LabeledContent("Line width") {
                     ValueSlider("Line width", value: $preferences.drawing.lineWidth, in: DrawingPreferences.widthRange, unit: "pt")
                 }
-                Text("Pen, arrow, and rectangle use these unless you change them below.").secondaryNote()
+                Text("Pen, arrow, and rectangle use these unless you change them below.").settingsNote()
             }
             Section("Tool styles") {
                 ForEach(DrawingTool.allCases, id: \.self) { tool in
@@ -66,7 +67,7 @@ struct DrawingSettingsPane: View {
             HStack(spacing: 0) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(SettingsColor.secondaryText)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: Self.chevronWidth)
                 Image(systemName: tool.symbol).frame(width: Self.iconWidth)
@@ -97,7 +98,7 @@ struct DrawingSettingsPane: View {
                 ValueSlider("Line width", value: drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
             }
             LabeledContent {
-                Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch)
+                Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch).controlSize(.mini)
             } label: {
                 optionLabel("Straighten strokes", note: "Shift always draws a straight line.")
             }
@@ -134,7 +135,7 @@ struct DrawingSettingsPane: View {
     private func optionLabel(_ title: String, note: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-            if let note { Text(note).font(.callout).foregroundStyle(.secondary) }
+            if let note { Text(note).settingsNote() }
         }
         .padding(.leading, Self.optionIndent)
     }
@@ -210,6 +211,7 @@ private struct ColorPalettePicker: View {
         }
         .labelsHidden()
         .fixedSize()
+        .buttonStyle(.borderless)
     }
 }
 

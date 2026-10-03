@@ -31,7 +31,7 @@ struct ValueSlider: View {
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
                     .frame(width: 32)
-                Text(unit).foregroundStyle(.secondary)
+                Text(unit).settingsValue()
                     .frame(width: 18, alignment: .leading)
             }
         }

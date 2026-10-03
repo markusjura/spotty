@@ -36,5 +36,6 @@ Computer Use cannot hold a key or mouse button while dragging, which every hold-
 
 ## AppKit pitfalls
 
+- The grouped `Form` fills sections with a translucent system color that `.listRowBackground`, `.backgroundStyle`, and `.foregroundStyle` don't change. Settings uses `SettingsFormStyle` to draw sections in `SettingsColor`; keep panes on plain `Form`, `Section`, and controls.
 - Spotty never activates while drawing. The overlay panels are non-activating, take key focus only while drawing is toggled on, and accept the first click, so the app under the pointer keeps focus and its window stays active.
 - Carbon hotkeys repeat their press event while held. `GlobalHotKeyCenter` reports only the first press and the release.

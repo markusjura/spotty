@@ -9,7 +9,8 @@ struct SpottyApp: App {
         Window("Settings", id: SettingsView.windowID) {
             SettingsView(preferences: delegate.preferences, commands: delegate.commands, inputTap: delegate.inputTap)
         }
-        .windowToolbarStyle(.unifiedCompact)
+        // System Settings' toolbar height and control size.
+        .windowToolbarStyle(.unified)
         .defaultSize(width: 660, height: 608)
         .windowResizability(.contentMinSize)
         .restorationBehavior(.disabled)

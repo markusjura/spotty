@@ -115,6 +115,9 @@ final class OverlayView: NSView {
         extendMark(to: point, shift: shift)
     }
 
+    /// Whether a drag is drawing a mark large enough to keep.
+    var hasLiveMark: Bool { live.map { !$0.mark.isEmpty } ?? false }
+
     func extendMark(to point: CGPoint, shift: Bool) {
         guard var current = live else { return }
         current.mark.add(point)

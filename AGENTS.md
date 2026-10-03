@@ -15,7 +15,7 @@ xcodebuild -project Spotty.xcodeproj -scheme Spotty -configuration Debug -destin
 - `<base> build` builds the Debug app without launching it.
 - `<base> test -only-testing:SpottyTests/<TestClass>` runs one test class.
 - `<base> test` runs all unit tests in a few seconds. It quits a running Spotty Dev.
-- `Scripts/run.sh dev` rebuilds and relaunches Spotty Dev, the Debug build. `Scripts/run.sh installed` switches back to `/Applications/Spotty.app`.
+- `Scripts/run.sh dev` rebuilds Spotty Dev, the Debug build, and relaunches it from `~/Applications/Spotty Dev.app`. Spotlight skips `.build`, so only that copy shows up in Spotlight, Raycast, and System Settings. Every checkout and worktree replaces the same copy. `Scripts/run.sh installed` switches back to `/Applications/Spotty.app`.
 - Spotty Dev has its own bundle ID, `local.markus.Spotty.dev`, plus its own preferences and permission grants. Only one of the two runs: Spotty Dev quits the installed build when it launches and quits itself when the installed build launches.
 - `osascript -e 'tell application id "local.markus.Spotty.dev" to quit'` quits Spotty Dev. Use `local.markus.Spotty` for the installed build.
 - `/usr/bin/log stream --level debug --predicate 'subsystem == "local.markus.Spotty"'` shows shortcut events and drawing mode changes from either build. In zsh, plain `log` is a builtin.

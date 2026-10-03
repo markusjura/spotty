@@ -43,11 +43,11 @@ Scripts/run.sh dev
 ## Develop
 
 ```sh
-Scripts/run.sh dev        # build Debug and switch to Spotty Dev
+Scripts/run.sh dev        # build Debug and switch to ~/Applications/Spotty Dev.app
 Scripts/run.sh installed  # switch back to /Applications/Spotty.app
 ```
 
-The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its own preferences and permission grants, so it never touches the installed Spotty's settings, and Spotlight and Raycast list it separately. The two share global shortcuts, so only one runs: `run.sh` quits both before launching one, and Spotty Dev quits the installed build when it launches and quits itself when the installed build launches. That check exists only in Debug builds. To start Spotty Dev with your current settings, run `defaults export local.markus.Spotty - | defaults import local.markus.Spotty.dev -` while both are quit.
+The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its own preferences and permission grants, so it never touches the installed Spotty's settings, and Spotlight and Raycast list it separately. `run.sh dev` copies the build to `~/Applications/Spotty Dev.app` and launches that copy, because Spotlight doesn't index the hidden `.build` folder. Every checkout and worktree replaces the same copy. The two share global shortcuts, so only one runs: `run.sh` quits both before launching one, and Spotty Dev quits the installed build when it launches and quits itself when the installed build launches. That check exists only in Debug builds. To start Spotty Dev with your current settings, run `defaults export local.markus.Spotty - | defaults import local.markus.Spotty.dev -` while both are quit.
 
 ## Package, install, and roll back
 

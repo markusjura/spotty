@@ -20,7 +20,7 @@ enum ToolSample {
                 NSBezierPath(roundedRect: CGRect(x: 15, y: y - 2.5, width: length, height: 5), xRadius: 2.5, yRadius: 2.5).fill()
             }
             if tool == .spotlight {
-                context.addPath(MarkGeometry.dimming(CGRect(x: 0, y: 0, width: 190, height: 55), spotlights: [mark.paint.path]))
+                context.addPath(MarkGeometry.dimming(CGRect(x: 0, y: 0, width: 190, height: 55), spotlight: mark.paint.path))
                 context.setFillColor(CGColor(gray: 0, alpha: drawing.spotlightDimming / 100))
                 context.fillPath()
             } else {

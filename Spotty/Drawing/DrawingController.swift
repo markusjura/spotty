@@ -68,8 +68,6 @@ final class DrawingController {
 
     func stop() { update { $0.stop() } }
 
-    var hasDrawings: Bool { overlay.hasDrawings }
-
     /// Applies a session change to the overlay and toolbar.
     private func update(_ change: (inout DrawingSession) -> Void) {
         let old = session

@@ -77,14 +77,10 @@ final class MarkTests: XCTestCase {
                       "The radius shrinks to fit small rects")
     }
 
-    func testSpotlightsCutHolesInTheDimming() {
+    func testSpotlightsCutAHoleInTheDimming() {
         let bounds = CGRect(x: 0, y: 0, width: 200, height: 200)
-        let dimming = MarkGeometry.dimming(bounds, spotlights: [
-            MarkGeometry.roundedRect(CGRect(x: 20, y: 20, width: 60, height: 60), radius: 12),
-            MarkGeometry.roundedRect(CGRect(x: 50, y: 50, width: 60, height: 60), radius: 12),
-        ])
+        let dimming = MarkGeometry.dimming(bounds, spotlight: MarkGeometry.roundedRect(CGRect(x: 20, y: 20, width: 60, height: 60), radius: 12))
         XCTAssertFalse(dimming.contains(CGPoint(x: 50, y: 50)))
-        XCTAssertFalse(dimming.contains(CGPoint(x: 70, y: 70)), "Overlapping spotlights stay bright")
         XCTAssertTrue(dimming.contains(CGPoint(x: 150, y: 150)))
     }
 }

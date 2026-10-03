@@ -48,21 +48,6 @@ struct RGBAColor: Codable, Hashable, Sendable {
     }
 
     func withAlpha(_ alpha: Double) -> RGBAColor { RGBAColor(red: red, green: green, blue: blue, alpha: alpha) }
-
-    /// Converts any color to sRGB; nil when the color cannot be represented.
-    init?(_ color: CGColor) {
-        guard let converted = color.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil),
-              let components = converted.components, components.count >= 4 else { return nil }
-        self.init(red: min(max(components[0], 0), 1), green: min(max(components[1], 0), 1),
-                  blue: min(max(components[2], 0), 1), alpha: min(max(components[3], 0), 1))
-    }
-
-    init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
-        self.red = red
-        self.green = green
-        self.blue = blue
-        self.alpha = alpha
-    }
 }
 
 /// Pen strokes and rectangle outlines.

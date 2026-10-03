@@ -130,10 +130,8 @@ final class Overlay {
         view.style = { [weak self] in self?.isActive == true ? self?.style() : nil }
         view.didFinish = { [weak self] view, mark, tool in
             guard let self else { return }
-            // A spotlight lasts only while its drag does, whatever the fade setting.
-            if tool == .spotlight {
-                view.remove(mark)
-            } else {
+            // A finished spotlight is already gone, whatever the fade setting.
+            if tool != .spotlight {
                 history.append((view, mark))
                 scheduleFade(of: mark, in: view)
             }

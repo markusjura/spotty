@@ -40,12 +40,13 @@ final class OverlayPanel: NSPanel {
 final class OverlayView: NSView {
     /// The style for a new mark; nil when drawing is off.
     var style: () -> MarkStyle? = { nil }
-    /// Called with each kept mark, for undo and its fade timer.
+    /// Called with each finished mark large enough to count, for undo and its fade timer. A
+    /// finished spotlight is already gone.
     var didFinish: (OverlayView, UUID, DrawingTool) -> Void = { _, _, _ in }
     /// Returns true when the key was handled.
     var handleKey: (NSEvent) -> Bool = { _ in false }
 
-    /// A mark and the layer that draws it. Spotlights keep a hidden layer and cut a hole in `dimming` instead.
+    /// A mark and the layer that draws it. A live spotlight keeps a hidden layer and cuts a hole in `dimming` instead.
     private struct Drawn {
         let id = UUID()
         var mark: Mark
@@ -122,20 +123,20 @@ final class OverlayView: NSView {
         render(current)
     }
 
-    /// Keeps a finished mark, or drops one too small to matter. Ending drawing mid-drag finishes it too.
+    /// Keeps a finished mark, or drops one too small to matter. A spotlight lasts only while its
+    /// drag does, so it is never kept. Ending drawing mid-drag finishes the mark too.
     func finishLive() {
         guard var current = live else { return }
         live = nil
         current.mark.finish()
-        if current.mark.isEmpty {
+        if current.mark.isEmpty || current.mark.tool == .spotlight {
             withoutAnimation { current.layer.removeFromSuperlayer() }
             updateDimming()
-            return
+        } else {
+            marks.append(current)
+            render(current)
         }
-        // Kept before rendering, so the dimming still counts a finished spotlight.
-        marks.append(current)
-        render(current)
-        didFinish(self, current.id, current.mark.tool)
+        if !current.mark.isEmpty { didFinish(self, current.id, current.mark.tool) }
     }
 
     private func render(_ item: Drawn) {
@@ -156,12 +157,13 @@ final class OverlayView: NSView {
         }
     }
 
+    /// Dims everything outside the spotlight being dragged, if any.
     private func updateDimming() {
-        let spotlights = (marks + [live].compactMap { $0 }).filter { $0.mark.tool == .spotlight }.map(\.mark.paint.path)
+        let spotlight = live.flatMap { $0.mark.tool == .spotlight ? $0.mark.paint.path : nil }
         withoutAnimation {
-            dimming.isHidden = spotlights.isEmpty
+            dimming.isHidden = spotlight == nil
             dimming.opacity = Float(currentDimming)
-            dimming.path = spotlights.isEmpty ? nil : MarkGeometry.dimming(bounds, spotlights: spotlights)
+            dimming.path = spotlight.map { MarkGeometry.dimming(bounds, spotlight: $0) }
         }
     }
 
@@ -172,7 +174,6 @@ final class OverlayView: NSView {
         guard let index = marks.firstIndex(where: { $0.id == id }) else { return }
         let removed = marks.remove(at: index)
         withoutAnimation { removed.layer.removeFromSuperlayer() }
-        if removed.mark.tool == .spotlight { updateDimming() }
     }
 
     func removeAll() {
@@ -187,8 +188,7 @@ final class OverlayView: NSView {
 
     // MARK: Fading
 
-    /// Fades one stroked or filled mark out and removes it. Returns at once when the mark is already gone.
-    /// Spotlights never fade; they draw no layer of their own.
+    /// Fades one kept mark out and removes it. Returns at once when the mark is already gone.
     func fadeOut(_ id: UUID) async {
         guard let item = marks.first(where: { $0.id == id }) else { return }
         await withCheckedContinuation { continuation in

@@ -3,5 +3,4 @@ version = 1
 name = "local"
 
 [setup]
-script = '''
-zsh .worktree-setup.sh'''
+script = "zsh .worktree-setup.sh"

@@ -28,7 +28,8 @@ struct ShortcutSettingsPane: View {
             Text("Hold a shortcut to draw until you let go. Tap it to keep drawing on, and tap it again or press Escape to stop. While holding one, press another to switch tools, such as ⌃⇧ and then A. Add a second shortcut, such as a mouse button, in the right column. While holding a mouse button, press a tool letter alone.")
                 .settingsNote()
         case .actions:
-            EmptyView()
+            Text("Toggle Drawing turns drawing on with the same tool as Draw, without holding. Press it again or Escape to stop.")
+                .settingsNote()
         case .whileDrawing:
             Text("While drawing is on, Escape stops, ⌘Z or Delete removes the last drawing, and ⌘⌫ clears all. Shift draws straight lines, 45° arrows, and squares.")
                 .settingsNote()

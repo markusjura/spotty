@@ -15,6 +15,7 @@ The defaults, all changeable in Settings > Shortcuts:
 |----------|--------|
 | ⌃⇧ | Draw with the last used tool, or the start tool set in Settings > Drawing |
 | ⌃⇧P, ⌃⇧H, ⌃⇧A, ⌃⇧R, ⌃⇧S | Draw with the pen, highlighter, arrow, rectangle, or spotlight |
+| ⌃⇧D | Toggle drawing on or off with the last used tool or the start tool, without holding |
 | ⌃⇧Z | Undo the last drawing |
 | ⌃⇧⌫ | Clear all drawings |
 

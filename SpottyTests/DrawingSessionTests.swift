@@ -26,6 +26,25 @@ final class DrawingSessionTests: XCTestCase {
         XCTAssertEqual(session.mode, .off)
     }
 
+    func testToggleDrawingTurnsDrawingOnAndOffWithoutHolding() {
+        var session = DrawingSession(tool: .pen)
+        session.toggleDrawing(startTool: .highlighter)
+        XCTAssertEqual(session.mode, .latched)
+        XCTAssertEqual(session.tool, .highlighter)
+        session.toggleDrawing(startTool: .highlighter)
+        XCTAssertEqual(session.mode, .off)
+    }
+
+    /// Hold ⌃⇧ and press D: drawing stays on after letting go of ⌃⇧.
+    func testToggleDrawingWhileHoldingKeepsDrawingOn() {
+        var session = DrawingSession(tool: .pen)
+        session.pressed(ShortcutSlot(.drawArrow), at: 0, startTool: .pen)
+        session.toggleDrawing(startTool: .pen)
+        session.released(ShortcutSlot(.drawArrow), at: long)
+        XCTAssertEqual(session.mode, .latched)
+        XCTAssertEqual(session.tool, .arrow)
+    }
+
     func testAQuickPressThatDrewIsAHold() {
         var session = DrawingSession(tool: .pen)
         session.pressed(ShortcutSlot(.draw), at: 0, startTool: .pen)

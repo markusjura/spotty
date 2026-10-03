@@ -89,7 +89,18 @@ struct DrawingSession: Equatable, Sendable {
         self.tool = tool
     }
 
-    /// Menu items toggle like a tap.
+    /// Toggle Drawing turns drawing on with `startTool`, or off when it is toggled on. Pressed
+    /// while a drawing shortcut is held, it keeps drawing on after you let go.
+    mutating func toggleDrawing(startTool: DrawingTool) {
+        press = nil
+        switch mode {
+        case .off: mode = .latched; tool = startTool
+        case .holding: mode = .latched
+        case .latched: mode = .off
+        }
+    }
+
+    /// Tool menu items toggle like a tap of the tool's shortcut.
     mutating func toggle(_ tool: DrawingTool) {
         press = nil
         if mode == .off || self.tool != tool { mode = .latched; self.tool = tool } else { mode = .off }

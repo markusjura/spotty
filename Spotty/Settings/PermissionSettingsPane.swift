@@ -4,7 +4,6 @@ import SwiftUI
 
 /// Status is read on appearance and whenever Spotty becomes active after a System Settings visit.
 struct PermissionSettingsPane: View {
-    let commands: CommandRegistry
     let inputTap: InputTap
     @State private var loginStatus = SMAppService.mainApp.status
 

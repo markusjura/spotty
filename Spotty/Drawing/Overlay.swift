@@ -26,6 +26,9 @@ final class Overlay {
 
     var hasDrawings: Bool { !history.isEmpty }
 
+    /// Whether a drag is drawing a mark large enough to keep right now.
+    var isDrawingMark: Bool { panels.values.contains { $0.view.hasLiveMark } }
+
     /// Shows the panels and starts taking the mouse. `keyboard` also takes key focus, for
     /// toggled-on drawing; held drawing leaves keys with the app you are working in.
     func activate(keyboard: Bool) {
@@ -130,10 +133,8 @@ final class Overlay {
         view.style = { [weak self] in self?.isActive == true ? self?.style() : nil }
         view.didFinish = { [weak self] view, mark, tool in
             guard let self else { return }
-            // A spotlight lasts only while its drag does, whatever the fade setting.
-            if tool == .spotlight {
-                view.remove(mark)
-            } else {
+            // A finished spotlight is already gone, whatever the fade setting.
+            if tool != .spotlight {
                 history.append((view, mark))
                 scheduleFade(of: mark, in: view)
             }

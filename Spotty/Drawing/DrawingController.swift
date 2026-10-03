@@ -38,8 +38,12 @@ final class DrawingController {
             case .overlay: break
             }
         case .released(let slot):
-            // Finish a button-drawn mark first, so the release counts as a hold that drew.
-            overlay.endPointerMark()
+            if slot == session.heldSlot {
+                // A mark drawn during the press makes the release a hold: finish a button-drawn
+                // mark, and count a left drag that is still going.
+                overlay.endPointerMark()
+                if overlay.isDrawingMark { update { $0.didDraw() } }
+            }
             update { $0.released(slot, at: ProcessInfo.processInfo.systemUptime) }
         case .interrupted(let slot):
             update { $0.interrupted(slot) }
@@ -67,8 +71,6 @@ final class DrawingController {
     func pick(_ tool: DrawingTool) { update { $0.pick(tool) } }
 
     func stop() { update { $0.stop() } }
-
-    var hasDrawings: Bool { overlay.hasDrawings }
 
     /// Applies a session change to the overlay and toolbar.
     private func update(_ change: (inout DrawingSession) -> Void) {

@@ -80,6 +80,14 @@ final class CommandRegistryTests: XCTestCase {
         XCTAssertEqual(registry.shortcut(for: ShortcutSlot(.draw, 1)), .mouse(5))
     }
 
+    func testMalformedStoredKeysAreSkipped() throws {
+        let stored: [String: Shortcut?] = ["": .mouse(3), ".": .mouse(5), "draw.9": .mouse(6), "undo": .mouse(4)]
+        defaults.set(try JSONEncoder().encode(stored), forKey: CommandRegistry.storageKey)
+        let registry = CommandRegistry(defaults: defaults)
+        XCTAssertEqual(registry.shortcut(for: .undo), .mouse(4))
+        XCTAssertNil(registry.shortcut(for: ShortcutSlot(.draw, 1)))
+    }
+
     func testRecordingSuspendsGlobalBindings() {
         let registry = CommandRegistry(defaults: defaults)
         XCTAssertFalse(registry.activeGlobalBindings.isEmpty)

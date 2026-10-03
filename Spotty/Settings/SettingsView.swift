@@ -59,7 +59,7 @@ struct SettingsView: View {
                 case .general: GeneralSettingsPane(preferences: preferences)
                 case .drawing: DrawingSettingsPane(preferences: preferences)
                 case .shortcuts: ShortcutSettingsPane(commands: commands, inputTap: inputTap, preferences: preferences)
-                case .permissions: PermissionSettingsPane(commands: commands, inputTap: inputTap)
+                case .permissions: PermissionSettingsPane(inputTap: inputTap)
                 }
             }
             .formStyle(SettingsFormStyle())

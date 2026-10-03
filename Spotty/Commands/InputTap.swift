@@ -16,7 +16,11 @@ final class InputTap {
     @ObservationIgnored private let handler: @MainActor (TriggerEvent) -> Void
     @ObservationIgnored private var tap: CFMachPort?
     @ObservationIgnored private var source: CFRunLoopSource?
+    /// The bindings the tap watches: modifier-only chords and mouse buttons.
     @ObservationIgnored private var bindings: [ShortcutSlot: Shortcut] = [:]
+    /// Every active global shortcut, so a key pressed with a chord held can tell Spotty's own
+    /// shortcuts from other apps' without recomputing the registry's bindings per key.
+    @ObservationIgnored private var globalShortcuts: Set<Shortcut> = []
     /// The modifier-only chord currently held exactly.
     @ObservationIgnored private var heldChord: ShortcutSlot?
     @ObservationIgnored private var lastModifiers: Shortcut.Modifiers = []
@@ -43,9 +47,11 @@ final class InputTap {
     }
 
     /// Re-reads trust, for example when Settings becomes active after a System Settings visit.
+    /// Also retries a tap that failed to install while trust was still settling.
     func refreshTrust() {
         let trusted = AXIsProcessTrusted()
         if trusted != isTrusted { isTrusted = trusted }
+        if trusted, tap == nil, !bindings.isEmpty { installTap() }
     }
 
     /// Shows macOS's Accessibility prompt, which links to System Settings.
@@ -55,23 +61,21 @@ final class InputTap {
     }
 
     private func synchronize() {
-        let (wanted, trusted) = withObservationTracking {
-            (registry.activeGlobalBindings.filter { $0.value.needsEventTap }, isTrusted)
+        let (active, trusted) = withObservationTracking {
+            (registry.activeGlobalBindings, isTrusted)
         } onChange: { [weak self] in
             Task { @MainActor in self?.synchronize() }
         }
         endHeld()
-        bindings = wanted
-        if wanted.isEmpty || !trusted {
-            removeTap()
-        } else {
-            installTap(chords: wanted.values.contains(where: \.isModifierOnly), mouse: wanted.values.contains { $0.mouseButton != nil })
-        }
+        bindings = active.filter { $0.value.needsEventTap }
+        globalShortcuts = Set(active.values)
+        if bindings.isEmpty || !trusted { removeTap() } else { installTap() }
     }
 
     /// Watches keys only for modifier-only chords, and buttons only for mouse shortcuts.
-    private func installTap(chords: Bool, mouse: Bool) {
+    private func installTap() {
         removeTap()
+        let chords = bindings.values.contains(where: \.isModifierOnly), mouse = bindings.values.contains { $0.mouseButton != nil }
         var mask: CGEventMask = 0
         if chords { mask |= CGEventMask(1 << CGEventType.flagsChanged.rawValue) | CGEventMask(1 << CGEventType.keyDown.rawValue) }
         if mouse {
@@ -87,7 +91,7 @@ final class InputTap {
             }
             return swallow ? nil : Unmanaged.passUnretained(event)
         }, userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
-            // Trust can lag behind the grant; the next trust notification retries.
+            // Trust can lag behind the grant; the next trust refresh retries.
             return
         }
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
@@ -115,6 +119,9 @@ final class InputTap {
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            // Releases may have passed unseen while disabled, so end held gestures and start over.
+            endHeld()
+            lastModifiers = Shortcut.Modifiers(flags: CGEventSource.flagsState(.combinedSessionState))
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return false
         case .flagsChanged:
@@ -126,7 +133,7 @@ final class InputTap {
             if let heldChord, event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
                 let pressed = Shortcut(input: .key(UInt16(event.getIntegerValueField(.keyboardEventKeycode))),
                                        modifiers: Shortcut.Modifiers(flags: event.flags))
-                if !registry.activeGlobalBindings.values.contains(pressed) {
+                if !globalShortcuts.contains(pressed) {
                     self.heldChord = nil
                     handler(.interrupted(heldChord))
                 }

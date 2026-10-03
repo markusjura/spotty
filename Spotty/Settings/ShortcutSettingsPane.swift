@@ -40,7 +40,12 @@ struct ShortcutSettingsPane: View {
     private func row(_ id: CommandID) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                if let tool = id.tool { Label(id.title, systemImage: tool.symbol) } else { Text(title(for: id)) }
+                if let tool = id.tool {
+                    // A fixed icon column, so tool names line up whatever the symbol's width.
+                    Label { Text(id.title) } icon: { Image(systemName: tool.symbol).frame(width: 20) }
+                } else {
+                    Text(title(for: id))
+                }
                 Spacer()
                 ForEach(id.slots, id: \.self) { slot in
                     ShortcutRecorder(commands: commands, slot: slot) { problems[slot] = $0 }

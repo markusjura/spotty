@@ -115,7 +115,7 @@ struct ShortcutSlot: Hashable, Sendable {
         // Builds 3 and 4 stored Draw's second shortcut as a separate command.
         if key == "drawAlternate" { self.init(.draw, 1); return }
         let parts = key.split(separator: ".", maxSplits: 1)
-        guard let command = CommandID(rawValue: String(parts[0])) else { return nil }
+        guard let name = parts.first, let command = CommandID(rawValue: String(name)) else { return nil }
         let index = parts.count == 2 ? Int(parts[1]) : 0
         guard let index, command.slots.indices.contains(index) else { return nil }
         self.init(command, index)

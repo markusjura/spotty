@@ -30,6 +30,7 @@ Keep `MARKETING_VERSION` at `0.1.0`. Only I change it, when I call a release. Ne
 
 Computer Use cannot hold a key or mouse button while dragging, which every hold-to-draw check needs. `Scripts/ui/spotty-ui run "<steps>"` posts held modifiers, keys, drags, and mouse buttons from one process, and `Scripts/ui/spotty-ui windows` lists the windows of Spotty Dev when it runs, else of the installed Spotty. The overlay is the full-display window on a layer near `CGWindowLevelForKey(.cursorWindow)`. Capture it with `screencapture -x -o -l <id>`. Run the tool without arguments for usage.
 
+- Each `run` starts with no modifiers held, so `mods` in a later `run` releases nothing and Spotty stays in its held gesture. Hold and release modifiers within one `run`.
 - Posted input moves the real pointer and types for real. Only use it while the Mac is unlocked and nobody is using it.
 - Never post input while Computer Use shows its "ChatGPT is Using Your Mac" shield. The first posted key dismisses the shield and drops the Mac to the real lock screen, where further keys type into the password field.
 - Modifier-only and mouse button shortcuts need Accessibility for the build that runs. Grants follow the designated requirement, which includes the bundle ID, so Spotty Dev needs its own grant once. It then survives rebuilds signed with the same identity.

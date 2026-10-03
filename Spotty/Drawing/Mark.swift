@@ -273,10 +273,8 @@ enum MarkGeometry {
         return CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
-    /// The dimmed area: everything in `bounds` outside the spotlights.
-    static func dimming(_ bounds: CGRect, spotlights: [CGPath]) -> CGPath {
-        guard let first = spotlights.first else { return CGPath(rect: bounds, transform: nil) }
-        let holes = spotlights.dropFirst().reduce(first) { $0.union($1) }
-        return CGPath(rect: bounds, transform: nil).subtracting(holes)
+    /// The dimmed area: everything in `bounds` outside the spotlight.
+    static func dimming(_ bounds: CGRect, spotlight: CGPath) -> CGPath {
+        CGPath(rect: bounds, transform: nil).subtracting(spotlight)
     }
 }

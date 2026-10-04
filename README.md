@@ -32,12 +32,12 @@ Requires an Apple Silicon Mac, macOS 26 or later, Xcode 27, and the existing App
 Open `Spotty.xcodeproj` and select the shared Spotty scheme, or run:
 
 ```sh
-Scripts/build.sh
-xcodebuild -project Spotty.xcodeproj -scheme Spotty -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/acceptance-tests test
+Scripts/xcode.sh release build
+Scripts/test.sh
 Scripts/run.sh dev
 ```
 
-`Scripts/build.sh` builds the signed Release app at `.build/Build/Products/Release/Spotty.app`. The target uses Hardened Runtime, no App Sandbox, and no entitlements. This is private Apple Development signing, not a notarized Developer ID release, so a copied build may not launch as trusted on another Mac.
+`Scripts/xcode.sh release build` builds the signed Release app at `.build/Build/Products/Release/Spotty.app`. The target uses Hardened Runtime, no App Sandbox, and no entitlements. This is private Apple Development signing, not a notarized Developer ID release, so a copied build may not launch as trusted on another Mac.
 
 `Scripts/GenerateAppIcon.swift` draws the app icon and the menu bar icon from one glyph. Run `swift Scripts/GenerateAppIcon.swift` after changing it.
 
@@ -52,22 +52,15 @@ The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its o
 
 ## Package, install, and roll back
 
-Increase `CURRENT_PROJECT_VERSION` in the Spotty target, commit, and push to `main`, then package:
+`Scripts/release.sh` increases `CURRENT_PROJECT_VERSION` in the Spotty target, commits, pushes to `main`, then packages, installs, and launches the build with the two scripts below. `MARKETING_VERSION` only changes by hand.
 
-```sh
-Scripts/package.sh
-```
-
-It refuses to run unless the working tree is clean and `HEAD` is `origin/main`, so each build number names one pushed commit. It builds Release, refuses to continue unless `codesign --verify --deep --strict` passes and the bundle ID is `local.markus.Spotty`, and writes to `.build/releases/`:
+`Scripts/package.sh` refuses to run unless the working tree is clean and `HEAD` is `origin/main`, so each build number names one pushed commit. It builds Release, refuses to continue unless `codesign --verify --deep --strict` passes and the bundle ID is `local.markus.Spotty`, and writes to `.build/releases/`:
 
 - `Spotty-<version>-<build>-<commit>.zip`, created with `ditto` so the signature survives.
 - A `.sha256` checksum beside it.
 - A `.txt` record of the signing authority, team, designated requirement, and entitlements.
 
-Install on the same Mac:
-
-1. Quit Spotty from its menu. The installer refuses to run while Spotty is running; it does not quit the app for you.
-2. Run `Scripts/install.sh .build/releases/Spotty-<version>-<build>-<commit>.zip`.
+To install on the same Mac, run `Scripts/install.sh .build/releases/Spotty-<version>-<build>-<commit>.zip`. It asks a running Spotty to quit first, like its Quit menu item.
 
 The installer checks the checksum when the `.sha256` file is present, verifies the signature and bundle ID, and warns before installing a build whose designated requirement differs from the installed one, because macOS ties permission grants to it. It replaces `/Applications/Spotty.app` by renaming and keeps the replaced build at `~/Library/Application Support/Spotty Installer.noindex/Spotty.previous.app`. `Scripts/install.sh --rollback` swaps the two. Settings in UserDefaults are never touched.
 

@@ -1,6 +1,6 @@
 # Project instructions
 
-This file documents guidance for agents working in this repository. Record only non-obvious pitfalls, surprises, and constraints, and add new ones when you discover them.
+This file documents guidance for agents working in this repository. Record only non-obvious pitfalls, surprises, and constraints of the workflow and tools, and add new ones when you discover them. Explain code pitfalls in a comment where they apply, not here.
 
 Spotty is Shotty's sibling. Keep shared patterns (Settings layout, `CommandRegistry`, `ShortcutRecorder`, `AppPreferences`, `Chrome` and `Bar` tokens, scripts) consistent with `~/workspace/shotty` unless Spotty needs something different.
 
@@ -34,9 +34,3 @@ Computer Use cannot hold a key or mouse button while dragging, which every hold-
 - Posted input moves the real pointer and types for real. Only use it while the Mac is unlocked and nobody is using it.
 - Never post input while Computer Use shows its "ChatGPT is Using Your Mac" shield. The first posted key dismisses the shield and drops the Mac to the real lock screen, where further keys type into the password field.
 - Modifier-only and mouse button shortcuts need Accessibility for the build that runs. Grants follow the designated requirement, which includes the bundle ID, so Spotty Dev needs its own grant once. It then survives rebuilds signed with the same identity.
-
-## AppKit pitfalls
-
-- The grouped `Form` fills sections with a translucent system color that `.listRowBackground`, `.backgroundStyle`, and `.foregroundStyle` don't change. Settings uses `SettingsFormStyle` to draw sections in `SettingsColor`; keep panes on plain `Form`, `Section`, and controls.
-- Spotty never activates while drawing. The overlay panels are non-activating, take key focus only while drawing is toggled on, and accept the first click, so the app under the pointer keeps focus and its window stays active.
-- Carbon hotkeys repeat their press event while held. `GlobalHotKeyCenter` reports only the first press and the release.

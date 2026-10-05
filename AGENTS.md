@@ -10,7 +10,7 @@ Spotty is Shotty's sibling. Keep shared patterns (Settings layout, `CommandRegis
 - `Scripts/run.sh installed` switches back to the installed Spotty.
 - `Scripts/test.sh [TestClass]` runs all unit tests or one class.
 - `Scripts/log.sh` streams Spotty's log: shortcut events and drawing mode changes.
-- `Scripts/release.sh` bumps the build number, pushes to `main`, packages, and installs. Only when I ask. Never change `MARKETING_VERSION`.
+- Run `Scripts/release.sh` and `Scripts/publish.sh` only when I ask.
 
 ## Verifying drawing
 

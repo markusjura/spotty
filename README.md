@@ -2,6 +2,17 @@
 
 A native macOS screen highlighter tailored to Markus's workflow, from the same family as Shotty. Hold a shortcut, draw on the screen, let go. No mode to enter first and no mode to leave afterwards.
 
+## Install
+
+Spotty needs macOS 26 or later.
+
+1. Download the DMG from the [latest release](https://github.com/markusjura/spotty/releases/latest) and open it.
+2. Drag Spotty onto Applications.
+3. Open Spotty from Applications. macOS says it can't verify Spotty, because Spotty isn't notarized by Apple. Click Done.
+4. Open System Settings > Privacy & Security, click Open Anyway next to the message about Spotty, and confirm with your password.
+
+Spotty runs from the menu bar. On first launch, it asks you to allow Accessibility in System Settings, which the default ⌃⇧ shortcut and mouse button shortcuts need.
+
 ## Using it
 
 Every drawing shortcut works two ways:
@@ -52,21 +63,24 @@ The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its o
 
 ## Package, install, and roll back
 
-`Scripts/release.sh` increases `CURRENT_PROJECT_VERSION` in the Spotty target, commits, pushes to `main`, then packages, installs, and launches the build with the two scripts below. `MARKETING_VERSION` only changes by hand.
+`Scripts/release.sh [patch|minor|major|X.Y.Z]` bumps `MARKETING_VERSION` in `Config/Version.xcconfig`, patch by default, commits `chore: release <version>`, and pushes it to `main` with tag `v<version>`. It then packages, installs, and launches the release with the scripts below and publishes it on GitHub. `CURRENT_PROJECT_VERSION` equals `MARKETING_VERSION`, so the version alone identifies a release.
 
-`Scripts/package.sh` refuses to run unless the working tree is clean and `HEAD` is `origin/main`, so each build number names one pushed commit. It builds Release, refuses to continue unless `codesign --verify --deep --strict` passes and the bundle ID is `local.markus.Spotty`, and writes to `.build/releases/`:
+`Scripts/package.sh` refuses to run unless the working tree is clean and `HEAD` is `origin/main`, so each version names one pushed commit. It builds Release, refuses to continue unless `codesign --verify --deep --strict` passes and the bundle ID is `local.markus.Spotty`, and writes to `.build/releases/`:
 
-- `Spotty-<version>-<build>-<commit>.zip`, created with `ditto` so the signature survives.
-- A `.sha256` checksum beside it.
+- `Spotty-<version>.zip`, created with `ditto` so the signature survives. `install.sh` and fleet use it.
+- `Spotty-<version>.dmg`, built by `uvx dmgbuild` from `Config/dmg.py`. It opens to a window for dragging Spotty onto Applications. `swift Scripts/GenerateDMGBackground.swift Config` redraws its background.
+- A `.sha256` checksum beside each.
 - A `.txt` record of the signing authority, team, designated requirement, and entitlements.
 
-To install on the same Mac, run `Scripts/install.sh .build/releases/Spotty-<version>-<build>-<commit>.zip`. It asks a running Spotty to quit first, like its Quit menu item.
+`Scripts/publish.sh <version>` creates or updates the GitHub release for tag `v<version>` with the DMG and its checksum. The notes list the commits since the previous tag, without chores, followed by the Install section of this README.
+
+To install on the same Mac, run `Scripts/install.sh .build/releases/Spotty-<version>.zip`. It refuses a version older than the installed one and asks a running Spotty to quit first, like its Quit menu item.
 
 The installer checks the checksum when the `.sha256` file is present, verifies the signature and bundle ID, and warns before installing a build whose designated requirement differs from the installed one, because macOS ties permission grants to it. It replaces `/Applications/Spotty.app` by renaming and keeps the replaced build at `~/Library/Application Support/Spotty Installer.noindex/Spotty.previous.app`. `Scripts/install.sh --rollback` swaps the two. Settings in UserDefaults are never touched.
 
 ## Fleet
 
-Install on any fleet Mac as above. Fleet sync from `markusjura/mac-settings` then observes the newer build in `/Applications`, archives it, and installs it on the other Macs within minutes. It quits a running Spotty gracefully and reopens it afterwards. Fleet refuses builds whose designated requirement differs from the one pinned in its policy. Check progress with `fleet status` (`spotty.activation`). Fleet never lowers its target, so it reinstalls the newer build within minutes of `install.sh --rollback`. Set `spotty.enabled` to false in the fleet policy first, or fix forward with a higher build number.
+Install on any fleet Mac as above. Fleet sync from `markusjura/mac-settings` then observes the newer version in `/Applications`, archives it, and installs it on the other Macs within minutes. It quits a running Spotty gracefully and reopens it afterwards. Fleet refuses builds whose designated requirement differs from the one pinned in its policy. Check progress with `fleet status` (`spotty.activation`). Fleet never lowers its target, so it reinstalls the newer version within minutes of `install.sh --rollback`. Set `spotty.enabled` to false in the fleet policy first, or fix forward with a higher version.
 
 A Mac that receives Spotty for the first time leaves it closed. Open it once there and approve the Accessibility prompt.
 

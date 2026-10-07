@@ -25,6 +25,10 @@ final class DrawingController {
 
     var isDrawing: Bool { session.isActive }
 
+    /// True while relaunching would interrupt the user or lose drawings: while drawing is on and
+    /// while drawings are on screen. Spotty keeps no other state that a relaunch would discard.
+    var hasWork: Bool { isDrawing || overlay.hasDrawings }
+
     /// From the hotkey center and the event tap.
     func handle(_ event: TriggerEvent) {
         Self.log.debug("\(String(describing: event), privacy: .public)")

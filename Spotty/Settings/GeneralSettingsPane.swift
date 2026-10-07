@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GeneralSettingsPane: View {
     @Bindable var preferences: AppPreferences
+    let updater: AppUpdater
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var loginError: String?
 
@@ -33,6 +34,7 @@ struct GeneralSettingsPane: View {
                     Text(loginError).settingsNote()
                 }
             }
+            UpdateSettingsSection(updater: updater)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loginStatus = SMAppService.mainApp.status

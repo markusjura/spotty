@@ -7,7 +7,8 @@ struct SpottyApp: App {
     var body: some Scene {
         // A window rather than a Settings scene, which SwiftUI always keeps at a fixed size.
         Window("Settings", id: SettingsView.windowID) {
-            SettingsView(preferences: delegate.preferences, commands: delegate.commands, inputTap: delegate.inputTap)
+            SettingsView(preferences: delegate.preferences, commands: delegate.commands, inputTap: delegate.inputTap,
+                         updater: delegate.updater)
                 .onAppear { delegate.settingsIsOpen = true }
                 .onDisappear { delegate.settingsIsOpen = false }
         }
@@ -20,18 +21,58 @@ struct SpottyApp: App {
         .commands {
             SwiftUI.CommandGroup(replacing: .appSettings) { SettingsButton() }
         }
-        MenuBarExtra("Spotty", image: "MenuBarIcon", isInserted: Binding(
+        MenuBarExtra(isInserted: Binding(
             get: { delegate.preferences.general.showsMenuBarIcon },
             set: { delegate.preferences.general.showsMenuBarIcon = $0 })) {
-            SpottyMenu(drawing: delegate.drawing, inputTap: delegate.inputTap)
+            SpottyMenu(drawing: delegate.drawing, inputTap: delegate.inputTap, updater: delegate.updater)
+        } label: {
+            MenuBarLabel(showsUpdateDot: delegate.updater.needsAttention)
         }
     }
+}
+
+/// The menu bar item: Spotty's highlighter, with a blue dot while an update needs the user.
+private struct MenuBarLabel: View {
+    let showsUpdateDot: Bool
+
+    var body: some View {
+        Image(nsImage: showsUpdateDot ? Self.iconWithDot : Self.icon)
+    }
+
+    private static let icon: NSImage = {
+        let image = NSImage(resource: .menuBarIcon)
+        image.isTemplate = true
+        image.accessibilityDescription = "Spotty"
+        return image
+    }()
+
+    /// The icon with a blue dot in its top right corner. A template image can't carry color, so this
+    /// one draws the glyph itself in the menu bar's label color, resolved each time it draws.
+    private static let iconWithDot: NSImage = {
+        let image = NSImage(size: icon.size, flipped: false) { bounds in
+            icon.draw(in: bounds)
+            NSColor.labelColor.set()
+            bounds.fill(using: .sourceAtop)
+            let dot = CGRect(x: bounds.maxX - 6, y: bounds.maxY - 6, width: 6, height: 6)
+            // A clear ring keeps the dot apart from the highlighter tip it overlaps.
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.systemBlue.setFill()
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        image.cacheMode = .never
+        image.accessibilityDescription = "Spotty, update available"
+        return image
+    }()
 }
 
 /// The menu bar menu. Drawing items toggle like a tap of their shortcut.
 private struct SpottyMenu: View {
     let drawing: DrawingController
     let inputTap: InputTap
+    let updater: AppUpdater
 
     var body: some View {
         let commands = drawing.commands
@@ -53,6 +94,7 @@ private struct SpottyMenu: View {
         if commands.needsEventTap && !inputTap.isTrusted {
             Button("Allow Accessibility Access…") { inputTap.requestAccess() }
         }
+        UpdateMenuItem(updater: updater)
         SettingsButton()
         Button("Quit Spotty") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
@@ -64,6 +106,7 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
     let commands = CommandRegistry()
     lazy var drawing = DrawingController(preferences: preferences, commands: commands)
     lazy var inputTap = InputTap(registry: commands) { [weak self] in self?.drawing.handle($0) }
+    lazy var updater = AppUpdater(environment: .init(isBusy: { [drawing] in drawing.hasWork }))
     private var hotKeys: GlobalHotKeyCenter?
     /// Open Settings makes Spotty a regular app, so the window gets a Dock icon, a Cmd-Tab entry,
     /// and the app menu, and window switchers list it like any other window.
@@ -87,6 +130,8 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
         hotKeys = GlobalHotKeyCenter(registry: commands) { [weak self] in self?.drawing.handle($0) }
         hotKeys?.start()
         inputTap.start()
+        // Creating the updater starts Sparkle's schedule; the menu bar may have created it already.
+        _ = updater
         if commands.needsEventTap, !inputTap.isTrusted, !UserDefaults.standard.bool(forKey: Self.accessibilityRequestedKey) {
             UserDefaults.standard.set(true, forKey: Self.accessibilityRequestedKey)
             inputTap.requestAccess()

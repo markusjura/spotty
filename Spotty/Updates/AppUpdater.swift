@@ -31,7 +31,8 @@ final class AppUpdater: NSObject {
         case idle
         /// Check Now is waiting for the feed.
         case checking
-        /// Check Now failed. Scheduled checks fail silently and stay idle.
+        /// Check Now failed to check or to download the update it found. Scheduled cycles fail
+        /// silently and stay idle.
         case failed(offline: Bool)
         /// Sparkle is downloading an update to install automatically.
         case downloading(Release)
@@ -95,6 +96,8 @@ final class AppUpdater: NSObject {
     @ObservationIgnored private var installUpdate: (() -> Void)?
     @ObservationIgnored private var readySince = Date.distantPast
     @ObservationIgnored private var idleTimer: Timer?
+    /// True from Check Now until the end of the update cycle it started, so that cycle reports its error.
+    @ObservationIgnored private var checkingNow = false
     private var updater: SPUUpdater { controller.updater }
 
     /// Tests pass `startsUpdater: false`, so Sparkle never checks a feed.
@@ -122,6 +125,7 @@ final class AppUpdater: NSObject {
     /// Sparkle, as in tests, only the status changes.
     func checkForUpdates() {
         status = .checking
+        checkingNow = true
         if isRunning { updater.checkForUpdatesInBackground() }
     }
 
@@ -176,20 +180,30 @@ extension AppUpdater: SPUUpdaterDelegate {
         status = .downloading(Release(item))
     }
 
-    /// Ends a check or download that didn't leave an update waiting for the user. Only a failed
-    /// Check Now reports its error; a no-update result and scheduled failures settle on idle.
+    /// Ends a check or download that didn't leave an update waiting for the user. Only a cycle that
+    /// Check Now started reports its error, whether the check or the download failed. A no-update
+    /// result and scheduled failures settle on idle. A kept available update stays until a later
+    /// check finds no update, as when its release was withdrawn.
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
         lastChecked = updater.lastUpdateCheckDate ?? lastChecked
+        let reportsError = checkingNow
+        checkingNow = false
+        let error = error as NSError?
+        let noUpdate = error?.domain == SUSparkleErrorDomain && error?.code == Int(SUError.noUpdateError.rawValue)
         switch status {
-        case .checking:
-            let error = error as NSError?
-            let noUpdate = error?.domain == SUSparkleErrorDomain && error?.code == Int(SUError.noUpdateError.rawValue)
-            status = if let error, !noUpdate { .failed(offline: Self.isOffline(error)) } else { .idle }
-        case .downloading:
-            status = .idle
-        case .idle, .failed, .available, .ready:
+        case .checking, .downloading:
+            status = if reportsError, let error, !noUpdate { .failed(offline: Self.isOffline(error)) } else { .idle }
+        case .available:
+            if noUpdate { status = .idle }
+        case .idle, .failed, .ready:
             break
         }
+    }
+
+    /// The user chose in Sparkle's window. Remind Me Later keeps the update available with its dot,
+    /// Skip Version drops it, and Install downloads it.
+    func updater(_ updater: SPUUpdater, userDidMake choice: SPUUserUpdateChoice, forUpdate updateItem: SUAppcastItem, state: SPUUserUpdateState) {
+        if choice == .skip, case .available = status { status = .idle }
     }
 
     #if DEBUG
@@ -208,11 +222,5 @@ extension AppUpdater: @preconcurrency SPUStandardUserDriverDelegate {
     func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
         guard !handleShowingUpdate else { return }
         status = .available(Release(update))
-    }
-
-    /// The user installed, skipped, or postponed the update in Sparkle's window. A postponed update
-    /// comes back with a later scheduled check.
-    func standardUserDriverWillFinishUpdateSession() {
-        if case .available = status { status = .idle }
     }
 }

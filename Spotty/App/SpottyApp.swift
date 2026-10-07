@@ -8,6 +8,8 @@ struct SpottyApp: App {
         // A window rather than a Settings scene, which SwiftUI always keeps at a fixed size.
         Window("Settings", id: SettingsView.windowID) {
             SettingsView(preferences: delegate.preferences, commands: delegate.commands, inputTap: delegate.inputTap)
+                .onAppear { delegate.settingsIsOpen = true }
+                .onDisappear { delegate.settingsIsOpen = false }
         }
         // System Settings' toolbar height and control size.
         .windowToolbarStyle(.unified)
@@ -63,6 +65,11 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
     lazy var drawing = DrawingController(preferences: preferences, commands: commands)
     lazy var inputTap = InputTap(registry: commands) { [weak self] in self?.drawing.handle($0) }
     private var hotKeys: GlobalHotKeyCenter?
+    /// Open Settings makes Spotty a regular app, so the window gets a Dock icon, a Cmd-Tab entry,
+    /// and the app menu, and window switchers list it like any other window.
+    var settingsIsOpen = false {
+        didSet { updateActivationPolicy() }
+    }
     /// macOS shows its Accessibility prompt once, on first launch, when a default needs it.
     private static let accessibilityRequestedKey = "accessibilityRequested"
     #if DEBUG
@@ -121,10 +128,20 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
     private func observePreferences() {
         withObservationTracking {
             NSApp.appearance = preferences.general.appearance.nsAppearance
-            let policy = preferences.general.activationPolicy
-            if NSApp.activationPolicy() != policy { NSApp.setActivationPolicy(policy) }
+            updateActivationPolicy()
         } onChange: { [weak self] in
             Task { @MainActor in self?.observePreferences() }
         }
+    }
+
+    private func updateActivationPolicy() {
+        // Read the preference unconditionally so preference observation keeps tracking it.
+        let preferred = preferences.general.activationPolicy
+        let policy = settingsIsOpen ? .regular : preferred
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+        // Activate after becoming a regular app so Settings comes forward with the app menu. Only
+        // Settings activates, so a login launch with the Dock icon on doesn't take focus.
+        if settingsIsOpen { NSApp.activate() }
     }
 }

@@ -103,6 +103,44 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(updater.status, .idle, "Finding no update is a success")
     }
 
+    func testOnlyAFailedDownloadAfterCheckNowReportsItsError() {
+        let updater = makeUpdater()
+        let delegate: SPUUpdaterDelegate = updater
+        let failure = NSError(domain: SUSparkleErrorDomain, code: Int(SUError.signatureError.rawValue))
+
+        delegate.updater?(sparkle, willDownloadUpdate: .empty(), with: NSMutableURLRequest())
+        delegate.updater?(sparkle, didFinishUpdateCycleFor: .updatesInBackground, error: failure)
+        XCTAssertEqual(updater.status, .idle, "A scheduled download fails silently")
+
+        updater.checkForUpdates()
+        delegate.updater?(sparkle, willDownloadUpdate: .empty(), with: NSMutableURLRequest())
+        delegate.updater?(sparkle, didFinishUpdateCycleFor: .updatesInBackground, error: failure)
+        XCTAssertEqual(updater.status, .failed(offline: false))
+    }
+
+    func testRemindMeLaterKeepsTheUpdateUntilItIsSkippedOrWithdrawn() throws {
+        let updater = makeUpdater()
+        let delegate: SPUUpdaterDelegate = updater
+        // Sparkle's `init()` is unavailable, so decode a not yet downloaded state from an empty archive.
+        let archiver = NSKeyedArchiver(requiringSecureCoding: true)
+        archiver.finishEncoding()
+        let state = try XCTUnwrap(SPUUserUpdateState(coder: NSKeyedUnarchiver(forReadingFrom: archiver.encodedData)))
+        let noUpdate = NSError(domain: SUSparkleErrorDomain, code: Int(SUError.noUpdateError.rawValue))
+
+        updater.standardUserDriverWillHandleShowingUpdate(false, forUpdate: .empty(), state: state)
+        delegate.updater?(sparkle, userDidMake: .dismiss, forUpdate: .empty(), state: state)
+        (updater as SPUStandardUserDriverDelegate).standardUserDriverWillFinishUpdateSession?()
+        delegate.updater?(sparkle, didFinishUpdateCycleFor: .updates, error: nil)
+        XCTAssertTrue(updater.needsAttention, "The update still exists after Remind Me Later")
+
+        delegate.updater?(sparkle, didFinishUpdateCycleFor: .updates, error: noUpdate)
+        XCTAssertEqual(updater.status, .idle, "A later check found the release withdrawn")
+
+        updater.standardUserDriverWillHandleShowingUpdate(false, forUpdate: .empty(), state: state)
+        delegate.updater?(sparkle, userDidMake: .skip, forUpdate: .empty(), state: state)
+        XCTAssertEqual(updater.status, .idle)
+    }
+
     func testScheduledUpdateShowsADotInsteadOfSparklesAlert() {
         let updater = makeUpdater()
         XCTAssertTrue(updater.supportsGentleScheduledUpdateReminders)

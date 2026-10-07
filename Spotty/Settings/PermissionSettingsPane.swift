@@ -11,8 +11,7 @@ struct PermissionSettingsPane: View {
         Form {
             Section("Accessibility") {
                 status(inputTap.isTrusted, granted: "Allowed", missing: "Not allowed")
-                Text("Needed only for modifier-only shortcuts, such as holding ⌃⇧, and for mouse button shortcuts. Shortcuts with a key work without it.")
-                    .settingsNote()
+                    .settingsRowNote("Needed only for modifier-only shortcuts, such as holding ⌃⇧, and for mouse button shortcuts. Shortcuts with a key work without it.")
                 if !inputTap.isTrusted {
                     HStack {
                         Button("Request Access") { inputTap.requestAccess() }
@@ -33,19 +32,15 @@ struct PermissionSettingsPane: View {
         }
     }
 
-    /// A status row with a white checkmark on system green when granted, as in System Settings, or a gray cross.
+    /// A status row with an outlined green checkmark when granted, as in Raycast's settings, or a gray cross.
+    /// Both glyphs are outlined circles of one size, so the row keeps its alignment when the status changes.
     private func status(_ ok: Bool, granted: String, missing: String) -> some View {
         LabeledContent("Status") {
             Label {
                 Text(ok ? granted : missing)
             } icon: {
-                if ok {
-                    Image(systemName: "checkmark.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, Color(nsColor: .systemGreen))
-                } else {
-                    Image(systemName: "xmark.circle").foregroundStyle(SettingsColor.secondaryText)
-                }
+                Image(systemName: ok ? "checkmark.circle" : "xmark.circle")
+                    .foregroundStyle(ok ? SettingsColor.success : SettingsColor.secondaryText)
             }
             .foregroundStyle(ok ? SettingsColor.primaryText : SettingsColor.secondaryText)
         }

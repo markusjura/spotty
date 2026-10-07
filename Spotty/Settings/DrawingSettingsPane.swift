@@ -135,7 +135,7 @@ struct DrawingSettingsPane: View {
     private func optionLabel(_ title: String, note: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-            if let note { Text(note).settingsNote() }
+            if let note { Text(note).font(.callout).settingsValue() }
         }
         .padding(.leading, Self.optionIndent)
     }

@@ -103,7 +103,7 @@ final class SpottyApplicationDelegate: NSObject, NSApplicationDelegate {
         installedLaunchObservation = NSWorkspace.shared.observe(\.runningApplications, options: [.new]) { _, change in
             guard change.newValue?.contains(where: { $0.bundleIdentifier == installedID }) == true else { return }
             // Quit from the next run loop pass, outside the KVO callback.
-            RunLoop.main.perform { NSApp.terminate(nil) }
+            RunLoop.main.perform { MainActor.assumeIsolated { NSApp.terminate(nil) } }
         }
     }
     #endif

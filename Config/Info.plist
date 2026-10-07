@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Sparkle updates. Scripts/publish.sh uploads appcast.xml to each release, so "latest" always
+         names the newest version. The private key for SUPublicEDKey is in the login keychain. -->
+    <key>SUFeedURL</key>
+    <string>https://github.com/markusjura/spotty/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>zfNAovkUOEVGX+Fw//AkIqkZFZBY4hOVS2btsUX9KuA=</string>
+    <!-- Check and install automatically without asking first. Settings > General can turn both off. -->
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+</dict>
+</plist>

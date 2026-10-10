@@ -19,7 +19,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .drawing: "highlighter"
         case .shortcuts: "command"
-        case .permissions: "lock.shield"
+        case .permissions: "lock"
         }
     }
 }

@@ -2,13 +2,52 @@ import XCTest
 @testable import Spotty
 
 final class MarkTests: XCTestCase {
+    /// A mark dragged through `points`, one every `interval` seconds.
     private func mark(_ tool: DrawingTool, _ points: [CGPoint], shift: Bool = false,
-                      style: ToolStyle = ToolStyle(color: .annotationRed, width: 4)) -> Mark {
-        var mark = Mark(tool: tool, at: points[0], style: style)
-        points.dropFirst().forEach { mark.add($0) }
+                      style: ToolStyle = ToolStyle(color: .annotationRed, width: 4), interval: TimeInterval = 0.01) -> Mark {
+        var mark = Mark(tool: tool, at: points[0], style: style, time: 0)
+        for (index, point) in points.enumerated().dropFirst() { mark.add(point, at: Double(index) * interval) }
         mark.isConstrained = shift
         mark.finish()
         return mark
+    }
+
+    func testDashLengthZeroDrawsDots() {
+        var dashed = ToolStyle(color: .annotationRed, width: 4, stroke: .dashed)
+        XCTAssertEqual(mark(.pen, [.zero, CGPoint(x: 100, y: 0)], style: dashed).paint.dash, [8, 10], "The dash at the default length")
+        dashed.strokeOptions.dashLength = 0
+        XCTAssertEqual(mark(.pen, [.zero, CGPoint(x: 100, y: 0)], style: dashed).paint.dash, [0, 8], "Round caps turn zero-length dashes into dots")
+        XCTAssertEqual(mark(.rectangle, [.zero, CGPoint(x: 100, y: 50)], style: dashed).paint.dash, [0, 8])
+        XCTAssertEqual(mark(.pen, [.zero, CGPoint(x: 100, y: 0)]).paint.dash, [], "Solid strokes have no dashes")
+    }
+
+    func testInkThinsFastStrokesAndTapersTheEnds() {
+        var ink = ToolStyle(color: .annotationRed, width: 10, stroke: .ink)
+        ink.strokeOptions.thinning = 80
+        ink.strokeOptions.taper = 0
+        let line = (0...100).map { CGPoint(x: Double($0) * 4, y: 0) }
+        let slow = mark(.pen, line, style: ink, interval: 0.02).paint
+        let fast = mark(.pen, line, style: ink, interval: 0.001).paint
+        XCTAssertFalse(slow.stroke); XCTAssertEqual(slow.fill, 1, "Ink is a filled outline")
+        XCTAssertTrue(slow.path.contains(CGPoint(x: 200, y: 4.5)), "A slow stroke keeps nearly its full width")
+        XCTAssertFalse(fast.path.contains(CGPoint(x: 200, y: 3)), "A fast stroke thins to about a fifth")
+        XCTAssertTrue(fast.path.contains(CGPoint(x: 200, y: 0.5)))
+
+        ink.strokeOptions.taper = 2
+        let tapered = mark(.pen, line, style: ink, interval: 0.02).paint
+        XCTAssertFalse(tapered.path.contains(CGPoint(x: 2, y: 3)), "The ends taper over two line widths")
+        XCTAssertTrue(tapered.path.contains(CGPoint(x: 200, y: 4.5)))
+    }
+
+    func testCalligraphyIsWideAcrossTheNibAndThinAlongIt() {
+        var calligraphy = ToolStyle(color: .annotationRed, width: 10, stroke: .calligraphy)
+        calligraphy.strokeOptions.nibAngle = 90
+        calligraphy.strokeOptions.nibEdge = 20
+        let across = mark(.pen, (0...50).map { CGPoint(x: Double($0) * 4, y: 0) }, style: calligraphy).paint
+        XCTAssertTrue(across.path.contains(CGPoint(x: 100, y: 4.5)), "A vertical nib moving sideways paints the full width")
+        let along = mark(.pen, (0...50).map { CGPoint(x: 0, y: Double($0) * 4) }, style: calligraphy).paint
+        XCTAssertTrue(along.path.contains(CGPoint(x: 0.9, y: 100)), "Moving along the nib leaves its edge")
+        XCTAssertFalse(along.path.contains(CGPoint(x: 2, y: 100)))
     }
 
     func testHighlighterStrokesStraightenOnlyWhenEnabled() {

@@ -65,10 +65,21 @@ enum ToolSample {
         context.strokePath()
     }
 
-    /// A finished mark dragged through `points`.
+    /// A finished mark dragged through `points`. The drag speeds up where the path is steepest, as
+    /// a hand does between the peaks of a wave, so ink samples show their thinning.
     private static func mark(_ tool: DrawingTool, _ style: ToolStyle, _ points: [CGPoint]) -> Mark {
-        var mark = Mark(tool: tool, at: points[0], style: style)
-        points.dropFirst().forEach { mark.add($0) }
+        let slopes = points.indices.map { index -> CGFloat in
+            let before = points[max(index - 1, 0)], after = points[min(index + 1, points.count - 1)]
+            return abs(after.y - before.y) / max(abs(after.x - before.x), 0.01)
+        }
+        let steepest = max(slopes.max() ?? 1, 0.01)
+        var mark = Mark(tool: tool, at: points[0], style: style, time: 0)
+        var time = 0.0
+        for index in points.indices.dropFirst() {
+            let speed = 300 + 1500 * min(1, slopes[index] / steepest) // points per second
+            time += hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y) / speed
+            mark.add(points[index], at: time)
+        }
         mark.finish()
         return mark
     }
@@ -94,7 +105,8 @@ enum ToolSample {
         style.color = RGBAColor.black.withAlpha(style.color.alpha)
         switch tool {
         case .pen:
-            style.width = 2
+            // A thin line, except the calligraphy nib, which needs some width to show its angle.
+            style.width = style.stroke == .calligraphy ? 3.4 : 2
             return mark(tool, style, stride(from: 3.0, through: 31, by: 1).map { CGPoint(x: $0, y: 9 + 5 * sin(($0 - 3) / 4.5)) })
         case .highlighter:
             style.width = 8
@@ -120,11 +132,11 @@ protocol StyleChoice: CaseIterable, Hashable where AllCases: RandomAccessCollect
     func sampleStyle(_ base: ToolStyle) -> ToolStyle
 }
 
-extension StrokePattern: StyleChoice {
+extension StrokeStyle: StyleChoice {
     var title: String {
-        switch self { case .solid: "Solid"; case .dashed: "Dashed"; case .dotted: "Dotted" }
+        switch self { case .solid: "Solid"; case .dashed: "Dashed"; case .ink: "Ink"; case .calligraphy: "Calligraphy" }
     }
-    func sampleStyle(_ base: ToolStyle) -> ToolStyle { var style = base; style.pattern = self; return style }
+    func sampleStyle(_ base: ToolStyle) -> ToolStyle { var style = base; style.stroke = self; return style }
 }
 
 extension HighlighterTip: StyleChoice {
@@ -148,6 +160,6 @@ extension RectangleStyle: StyleChoice {
         switch self { case .outline: "Outline"; case .dashed: "Dashed"; case .tinted: "Tinted" }
     }
     func sampleStyle(_ base: ToolStyle) -> ToolStyle {
-        var style = base; style.pattern = self == .dashed ? .dashed : .solid; style.isTinted = self == .tinted; return style
+        var style = base; style.stroke = self == .dashed ? .dashed : .solid; style.isTinted = self == .tinted; return style
     }
 }

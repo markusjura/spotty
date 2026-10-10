@@ -60,4 +60,21 @@ final class DrawingPreferencesTests: XCTestCase {
         XCTAssertEqual(reloaded.drawing.rectangleCornerRadius, 12, "Saved radii are not migrated again")
         XCTAssertEqual(reloaded.drawing.spotlightCornerRadius, 20)
     }
+
+    func testDottedPensBecomeDashedWithZeroLengthDashes() throws {
+        let suite = "DrawingPreferencesTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(Data(#"{"penPattern": "dotted"}"#.utf8), forKey: "preferences.v1.drawing")
+        let dotted = AppPreferences(defaults: defaults).drawing
+        XCTAssertEqual(dotted.penStyle, .dashed)
+        XCTAssertEqual(dotted.penOptions.dashLength, 0)
+        XCTAssertEqual(dotted.penOptions.thinning, 69, "Other options keep their defaults")
+
+        defaults.set(Data(#"{"penPattern": "dashed"}"#.utf8), forKey: "preferences.v1.drawing")
+        let dashed = AppPreferences(defaults: defaults).drawing
+        XCTAssertEqual(dashed.penStyle, .dashed)
+        XCTAssertEqual(dashed.penOptions, StrokeOptions())
+    }
 }

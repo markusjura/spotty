@@ -88,24 +88,43 @@ struct DrawingSettingsPane: View {
         let drawing = $preferences.drawing
         switch tool {
         case .pen:
-            styleRow("Style", tool, drawing.penPattern)
+            styleRow("Style", tool, drawing.penStyle)
             colorRow(tool)
             widthRow(tool)
+            let options = drawing.penOptions
+            switch preferences.drawing.penStyle {
+            case .solid:
+                EmptyView()
+            case .dashed:
+                option("Dash length", note: "In line widths. 0 draws dots.") {
+                    ValueSlider("Dash length", value: options.dashLength, in: StrokeOptions.dashLengthRange, step: 0.5, unit: "×")
+                }
+            case .ink:
+                option("Thinning", note: "How thin fast strokes get.") {
+                    ValueSlider("Thinning", value: options.thinning, in: StrokeOptions.thinningRange, unit: "%")
+                }
+                option("Taper", note: "Length in line widths.") {
+                    ValueSlider("Taper", value: options.taper, in: StrokeOptions.taperRange, unit: "×")
+                }
+            case .calligraphy:
+                option("Nib angle") {
+                    ValueSlider("Nib angle", value: options.nibAngle, in: StrokeOptions.nibAngleRange, step: 5, unit: "°")
+                }
+                option("Nib edge", note: "Thinnest line, in % of the width.") {
+                    ValueSlider("Nib edge", value: options.nibEdge, in: StrokeOptions.nibEdgeRange, unit: "%")
+                }
+            }
         case .highlighter:
             styleRow("Tip", tool, drawing.highlighterTip)
             option("Color") { ColorPalettePicker("Color", selection: drawing.highlighterColor) }
             option("Line width") {
                 ValueSlider("Line width", value: drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
             }
-            LabeledContent {
+            option("Straighten strokes", note: "Shift always draws a straight line.") {
                 Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch).controlSize(.mini)
-            } label: {
-                optionLabel("Straighten strokes", note: "Shift always draws a straight line.")
             }
-            LabeledContent {
+            option("Tolerance", note: "How much a stroke may waver.") {
                 ValueSlider("Tolerance", value: drawing.straightenTolerance, in: DrawingPreferences.straightenToleranceRange, unit: "pt")
-            } label: {
-                optionLabel("Tolerance", note: "How much a stroke may waver.")
             }
             .disabled(!preferences.drawing.straightensHighlighter)
         case .arrow:
@@ -140,8 +159,8 @@ struct DrawingSettingsPane: View {
         .padding(.leading, Self.optionIndent)
     }
 
-    private func option(_ title: String, @ViewBuilder control: () -> some View) -> some View {
-        LabeledContent { control() } label: { optionLabel(title) }
+    private func option(_ title: String, note: String? = nil, @ViewBuilder control: () -> some View) -> some View {
+        LabeledContent { control() } label: { optionLabel(title, note: note) }
     }
 
     /// The style choices as a segmented control of rendered samples.

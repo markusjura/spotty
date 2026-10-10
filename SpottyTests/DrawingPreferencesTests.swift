@@ -22,6 +22,19 @@ final class DrawingPreferencesTests: XCTestCase {
         XCTAssertNil(drawing.overrides[.arrow], "Clearing the last override removes the entry")
     }
 
+    func testToolsFollowTheDefaultFadeUnlessTheyHaveTheirOwn() {
+        var drawing = DrawingPreferences()
+        drawing.fadeDelay = 3
+        drawing[overrides: .rectangle].fadeDelay = 30
+        XCTAssertEqual(drawing.fadeAfter(for: .pen), .seconds(3))
+        XCTAssertEqual(drawing.fadeAfter(for: .highlighter), .seconds(3), "The highlighter follows the default fade too")
+        XCTAssertEqual(drawing.fadeAfter(for: .rectangle), .seconds(30))
+
+        drawing.fadesDrawings = false
+        XCTAssertNil(drawing.fadeAfter(for: .rectangle), "Off keeps every tool's drawings, whatever their own delay")
+        XCTAssertEqual(drawing[overrides: .rectangle].fadeDelay, 30, "The tool's delay waits for fading to come back")
+    }
+
     func testToolbarColorChangesTheToolsOwnColorOrTheDefault() {
         var drawing = DrawingPreferences()
         drawing[overrides: .arrow].color = .annotationBlue

@@ -62,3 +62,7 @@ Laser, Outlined, Pencil. Rectangle dash length (the pen's `dashLengths` helper m
 3. Point times, `resample`, `inkOutline`, Ink in `Mark.paint` and `ToolSample`. Verify with `Scripts/ui/spotty-ui run` drags at slow and fast speeds.
 4. `calligraphyOutline` and Calligraphy.
 5. Settings rows, indent, `ValueSlider` fractions. `Scripts/run.sh dev` and compare against the mockup in both appearances.
+
+## Follow-up: fade as a style
+
+Fade moved from Behavior into the default style. `fadesDrawings` is one global switch; `fadeDelay` is the default delay and `StyleOverrides.fadeDelay` lets every persisting tool keep its own, the highlighter included. `DrawingPreferences.fadeAfter(for:)` resolves it and `Overlay.fadeAfter` takes the tool. In Settings the Fade drawings switch and Fade after row sit under Color and Line width in Default style, each tool gets an overridable Fade after row, and those rows disappear while fading is off. Behavior keeps Draw starts with as its only row.

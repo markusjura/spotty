@@ -90,6 +90,8 @@ enum RectangleStyle: String, Codable, CaseIterable, Sendable { case outline, das
 struct StyleOverrides: Codable, Hashable, Sendable {
     var color: RGBAColor?
     var width: Double?
+    /// Seconds the tool's drawings stay; read only while drawings fade at all.
+    var fadeDelay: Double?
 
     var isEmpty: Bool { self == StyleOverrides() }
 }
@@ -126,15 +128,14 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var startTool: DrawingTool?
     /// Remembered across launches for `startTool == nil`.
     var lastTool = DrawingTool.highlighter
-    /// Off keeps drawings until cleared.
+    // The default style. Pen, arrow, and rectangle share the color and width; every tool shares the fade.
+    var color = RGBAColor.annotationRed
+    var lineWidth = 4.0
+    /// Off keeps drawings until cleared, whatever the tools' own delays.
     var fadesDrawings = true
     /// Seconds each drawing stays after you finish it.
     var fadeDelay = 2.0
-
-    // The default style, shared by pen, arrow, and rectangle.
-    var color = RGBAColor.annotationRed
-    var lineWidth = 4.0
-    /// Pen, arrow, and rectangle values that differ from the default style.
+    /// Values that differ from the default style, per tool.
     var overrides: [DrawingTool: StyleOverrides] = [:]
 
     var penStyle = StrokeStyle.solid
@@ -162,6 +163,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
             && Self.highlighterWidthRange.contains(highlighterWidth)
             && overrides.values.allSatisfy { custom in
                 custom.color?.isValid ?? true && custom.width.map(Self.widthRange.contains) ?? true
+                    && custom.fadeDelay.map(Self.fadeDelayRange.contains) ?? true
             }
             && Self.straightenToleranceRange.contains(straightenTolerance)
             && Self.arrowCornerRadiusRange.contains(arrowCornerRadius)
@@ -211,8 +213,10 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
         set { overrides[tool] = newValue.isEmpty ? nil : newValue }
     }
 
-    /// How long a finished drawing stays; nil keeps it until cleared.
-    var fadeAfter: Duration? { fadesDrawings ? .seconds(fadeDelay) : nil }
+    /// How long a finished drawing of `tool` stays; nil keeps it until cleared.
+    func fadeAfter(for tool: DrawingTool) -> Duration? {
+        fadesDrawings ? .seconds(self[overrides: tool].fadeDelay ?? fadeDelay) : nil
+    }
 
     /// The tool Draw starts with now.
     var resolvedStartTool: DrawingTool { startTool ?? lastTool }

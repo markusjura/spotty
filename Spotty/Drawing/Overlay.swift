@@ -6,8 +6,8 @@ import AppKit
 final class Overlay {
     /// The style for new marks while drawing is on.
     var style: () -> MarkStyle? = { nil }
-    /// How long each finished mark stays; nil keeps it until cleared.
-    var fadeAfter: () -> Duration? = { nil }
+    /// How long a finished mark of a tool stays; nil keeps it until cleared.
+    var fadeAfter: (DrawingTool) -> Duration? = { _ in nil }
     var didDraw: () -> Void = { }
     var handleKey: (NSEvent) -> Bool = { _ in false }
 
@@ -106,8 +106,8 @@ final class Overlay {
     }
 
     /// Starts a finished mark's own fade timer, so drawing more never extends it.
-    private func scheduleFade(of mark: UUID, in view: OverlayView) {
-        guard let fadeAfter = fadeAfter() else { return }
+    private func scheduleFade(of mark: UUID, by tool: DrawingTool, in view: OverlayView) {
+        guard let fadeAfter = fadeAfter(tool) else { return }
         Task { [weak self, weak view] in
             try? await Task.sleep(for: fadeAfter)
             await view?.fadeOut(mark)
@@ -136,7 +136,7 @@ final class Overlay {
             // A finished spotlight is already gone, whatever the fade setting.
             if tool != .spotlight {
                 history.append((view, mark))
-                scheduleFade(of: mark, in: view)
+                scheduleFade(of: mark, by: tool, in: view)
             }
             didDraw()
         }

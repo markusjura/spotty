@@ -3,7 +3,8 @@ import SwiftUI
 /// How drawing behaves, the default style, and each tool's style. A tool's collapsed row previews
 /// its current look; expanded, it shows only the options that tool draws with. Pen, arrow, and
 /// rectangle follow the default color and width unless changed; the highlighter has its own.
-/// The toolbar's color menu changes the same colors while drawing.
+/// Every tool follows the default fade delay unless changed, and the fade rows exist only while
+/// drawings fade at all. The toolbar's color menu changes the same colors while drawing.
 struct DrawingSettingsPane: View {
     @Bindable var preferences: AppPreferences
     @State private var expanded: Set<DrawingTool> = []
@@ -23,29 +24,16 @@ struct DrawingSettingsPane: View {
                     }
                 }
                 .buttonStyle(.borderless)
-                Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
-                LabeledContent("Fade after") {
-                    HStack(spacing: 3) {
-                        // Parses with the user's locale, so a German Mac takes 1,5. Out of range values snap to the nearest limit.
-                        let range = DrawingPreferences.fadeDelayRange
-                        TextField("Fade after", value: Binding(get: { preferences.drawing.fadeDelay },
-                                                               set: { preferences.drawing.fadeDelay = min(max($0, range.lowerBound), range.upperBound) }),
-                                  format: .number.precision(.fractionLength(0...2)))
-                            .labelsHidden()
-                            .multilineTextAlignment(.trailing)
-                            .monospacedDigit()
-                            .frame(width: 48)
-                        Text("seconds").settingsValue()
-                    }
-                }
-                .disabled(!preferences.drawing.fadesDrawings)
             }
             Section("Default style") {
                 LabeledContent("Color") { ColorPalettePicker("Color", selection: $preferences.drawing.color) }
                 LabeledContent("Line width") {
                     ValueSlider("Line width", value: $preferences.drawing.lineWidth, in: DrawingPreferences.widthRange, unit: "pt")
                 }
-                Text("Pen, arrow, and rectangle use these unless you change them below.").settingsNote()
+                Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
+                LabeledContent("Fade after") { SecondsField("Fade after", value: $preferences.drawing.fadeDelay) }
+                    .disabled(!preferences.drawing.fadesDrawings)
+                Text("Tools use these unless you change them below. The highlighter has its own color and width.").settingsNote()
             }
             Section("Tool styles") {
                 ForEach(DrawingTool.allCases, id: \.self) { tool in
@@ -91,6 +79,7 @@ struct DrawingSettingsPane: View {
             styleRow("Style", tool, drawing.penStyle)
             colorRow(tool)
             widthRow(tool)
+            fadeRow(tool)
             let options = drawing.penOptions
             switch preferences.drawing.penStyle {
             case .solid:
@@ -120,6 +109,7 @@ struct DrawingSettingsPane: View {
             option("Line width") {
                 ValueSlider("Line width", value: drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
             }
+            fadeRow(tool)
             option("Straighten strokes", note: "Shift always draws a straight line.") {
                 Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch).controlSize(.mini)
             }
@@ -131,6 +121,7 @@ struct DrawingSettingsPane: View {
             styleRow("Style", tool, drawing.arrowStyle)
             colorRow(tool)
             widthRow(tool)
+            fadeRow(tool)
             option("Corner radius") {
                 ValueSlider("Corner radius", value: drawing.arrowCornerRadius, in: DrawingPreferences.arrowCornerRadiusRange, unit: "pt")
             }
@@ -138,6 +129,7 @@ struct DrawingSettingsPane: View {
             styleRow("Style", tool, drawing.rectangleStyle)
             colorRow(tool)
             widthRow(tool)
+            fadeRow(tool)
             option("Corner radius") {
                 ValueSlider("Corner radius", value: drawing.rectangleCornerRadius, in: DrawingPreferences.cornerRadiusRange, unit: "pt")
             }
@@ -190,6 +182,14 @@ struct DrawingSettingsPane: View {
         }
     }
 
+    /// Nothing to override while drawings never fade, so the row goes away.
+    @ViewBuilder
+    private func fadeRow(_ tool: DrawingTool) -> some View {
+        if preferences.drawing.fadesDrawings {
+            overrideRow("Fade after", tool, \.fadeDelay, fallback: \.fadeDelay) { SecondsField("Fade after", value: $0) }
+        }
+    }
+
     /// A default-style option that shows the default value until changed. Changing it sets the
     /// tool's own value; the reset button makes the tool follow the default style again.
     private func overrideRow<Value: Equatable, Control: View>(
@@ -208,6 +208,31 @@ struct DrawingSettingsPane: View {
                 ResetButton(isVisible: isCustom) { preferences.drawing[overrides: tool][keyPath: property] = nil }
                 control(value)
             }
+        }
+    }
+}
+
+/// A fade delay in seconds. Parses with the user's locale, so a German Mac takes 1,5. Out of range
+/// values snap to the nearest limit.
+private struct SecondsField: View {
+    let title: String
+    @Binding var value: Double
+
+    init(_ title: String, value: Binding<Double>) {
+        self.title = title
+        _value = value
+    }
+
+    var body: some View {
+        let range = DrawingPreferences.fadeDelayRange
+        HStack(spacing: 3) {
+            TextField(title, value: Binding(get: { value }, set: { value = min(max($0, range.lowerBound), range.upperBound) }),
+                      format: .number.precision(.fractionLength(0...2)))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 48)
+            Text("seconds").settingsValue()
         }
     }
 }

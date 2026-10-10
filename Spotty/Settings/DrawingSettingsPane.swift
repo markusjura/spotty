@@ -33,7 +33,7 @@ struct DrawingSettingsPane: View {
                 Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
                 LabeledContent("Fade after") { SecondsField("Fade after", value: $preferences.drawing.fadeDelay) }
                     .disabled(!preferences.drawing.fadesDrawings)
-                Text("Tools use these unless you change them below. The highlighter has its own color and width.").settingsNote()
+                Text("Tools use these unless you change them below.").settingsNote()
             }
             Section("Tool styles") {
                 ForEach(DrawingTool.allCases, id: \.self) { tool in

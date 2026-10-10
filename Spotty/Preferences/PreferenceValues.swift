@@ -50,8 +50,36 @@ struct RGBAColor: Codable, Hashable, Sendable {
     func withAlpha(_ alpha: Double) -> RGBAColor { RGBAColor(red: red, green: green, blue: blue, alpha: alpha) }
 }
 
-/// Pen strokes and rectangle outlines.
-enum StrokePattern: String, Codable, CaseIterable, Sendable { case solid, dashed, dotted }
+/// How a pen stroke is laid down. Dashed draws dashes `StrokeOptions.dashLength` line widths long,
+/// Ink thins as the pointer speeds up and tapers at both ends, and Calligraphy is a flat nib held
+/// at a fixed angle, so width follows the stroke's direction. Rectangles use solid and dashed.
+enum StrokeStyle: String, Codable, CaseIterable, Sendable { case solid, dashed, ink, calligraphy }
+
+/// What the dashed, ink, and calligraphy styles draw with. Each style reads only its own values,
+/// so switching styles keeps the others' tuning.
+struct StrokeOptions: Codable, Equatable, Sendable {
+    static let dashLengthRange = 0.0...6.0
+    static let thinningRange = 0.0...90.0
+    static let taperRange = 0.0...8.0
+    static let nibAngleRange = 0.0...180.0
+    static let nibEdgeRange = 5.0...50.0
+
+    /// Dashed: dash length in line widths. Zero draws dots.
+    var dashLength = 2.0
+    /// Ink: how thin fast strokes get, in percent of the line width.
+    var thinning = 69.0
+    /// Ink: how many line widths each end tapers over.
+    var taper = 1.0
+    /// Calligraphy: the nib's angle in degrees, counterclockwise from horizontal.
+    var nibAngle = 35.0
+    /// Calligraphy: the thinnest line, in percent of the line width.
+    var nibEdge = 17.0
+
+    var isValid: Bool {
+        Self.dashLengthRange.contains(dashLength) && Self.thinningRange.contains(thinning) && Self.taperRange.contains(taper)
+            && Self.nibAngleRange.contains(nibAngle) && Self.nibEdgeRange.contains(nibEdge)
+    }
+}
 enum HighlighterTip: String, Codable, CaseIterable, Sendable { case round, flat }
 /// Open draws the head as two strokes; curved bends toward where the drag went.
 enum ArrowStyle: String, Codable, CaseIterable, Sendable { case standard, open, double, curved }
@@ -62,6 +90,8 @@ enum RectangleStyle: String, Codable, CaseIterable, Sendable { case outline, das
 struct StyleOverrides: Codable, Hashable, Sendable {
     var color: RGBAColor?
     var width: Double?
+    /// Seconds the tool's drawings stay; read only while drawings fade at all.
+    var fadeDelay: Double?
 
     var isEmpty: Bool { self == StyleOverrides() }
 }
@@ -74,7 +104,8 @@ struct ToolStyle: Equatable, Sendable {
     /// Rectangles, spotlights, and arrow heads and tails. Zero draws hard corners.
     var cornerRadius = 0.0
     /// Pens and rectangles.
-    var pattern = StrokePattern.solid
+    var stroke = StrokeStyle.solid
+    var strokeOptions = StrokeOptions()
     var arrow = ArrowStyle.standard
     /// Rectangles: a light fill inside the outline.
     var isTinted = false
@@ -97,18 +128,18 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var startTool: DrawingTool?
     /// Remembered across launches for `startTool == nil`.
     var lastTool = DrawingTool.highlighter
-    /// Off keeps drawings until cleared.
+    // The default style. Pen, arrow, and rectangle share the color and width; every tool shares the fade.
+    var color = RGBAColor.annotationRed
+    var lineWidth = 4.0
+    /// Off keeps drawings until cleared, whatever the tools' own delays.
     var fadesDrawings = true
     /// Seconds each drawing stays after you finish it.
     var fadeDelay = 2.0
-
-    // The default style, shared by pen, arrow, and rectangle.
-    var color = RGBAColor.annotationRed
-    var lineWidth = 4.0
-    /// Pen, arrow, and rectangle values that differ from the default style.
+    /// Values that differ from the default style, per tool.
     var overrides: [DrawingTool: StyleOverrides] = [:]
 
-    var penPattern = StrokePattern.solid
+    var penStyle = StrokeStyle.solid
+    var penOptions = StrokeOptions()
 
     /// The highlighter has its own color and width, drawn translucent like a marker.
     var highlighterColor = RGBAColor.highlighterYellow
@@ -128,10 +159,11 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var spotlightDimming = 50.0
 
     var isValid: Bool {
-        color.isValid && highlighterColor.isValid && Self.widthRange.contains(lineWidth)
+        color.isValid && highlighterColor.isValid && Self.widthRange.contains(lineWidth) && penOptions.isValid
             && Self.highlighterWidthRange.contains(highlighterWidth)
             && overrides.values.allSatisfy { custom in
                 custom.color?.isValid ?? true && custom.width.map(Self.widthRange.contains) ?? true
+                    && custom.fadeDelay.map(Self.fadeDelayRange.contains) ?? true
             }
             && Self.straightenToleranceRange.contains(straightenTolerance)
             && Self.arrowCornerRadiusRange.contains(arrowCornerRadius)
@@ -145,7 +177,8 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
         var style = ToolStyle(color: custom.color ?? color, width: custom.width ?? lineWidth)
         switch tool {
         case .pen:
-            style.pattern = penPattern
+            style.stroke = penStyle
+            style.strokeOptions = penOptions
         case .highlighter:
             style = ToolStyle(color: highlighterColor, width: highlighterWidth, hasFlatTips: highlighterTip == .flat,
                               straightenTolerance: straightensHighlighter ? straightenTolerance : nil)
@@ -153,7 +186,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
             style.arrow = arrowStyle
             style.cornerRadius = arrowCornerRadius
         case .rectangle:
-            style.pattern = rectangleStyle == .dashed ? .dashed : .solid
+            style.stroke = rectangleStyle == .dashed ? .dashed : .solid
             style.isTinted = rectangleStyle == .tinted
             style.cornerRadius = rectangleCornerRadius
         case .spotlight:
@@ -180,16 +213,23 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
         set { overrides[tool] = newValue.isEmpty ? nil : newValue }
     }
 
-    /// How long a finished drawing stays; nil keeps it until cleared.
-    var fadeAfter: Duration? { fadesDrawings ? .seconds(fadeDelay) : nil }
+    /// How long a finished drawing of `tool` stays; nil keeps it until cleared.
+    func fadeAfter(for tool: DrawingTool) -> Duration? {
+        fadesDrawings ? .seconds(self[overrides: tool].fadeDelay ?? fadeDelay) : nil
+    }
 
     /// The tool Draw starts with now.
     var resolvedStartTool: DrawingTool { startTool ?? lastTool }
 
     /// Build 11 kept one corner radius in the default style, which tools could override. Rectangles
-    /// and spotlights now keep their own, starting from the radius they drew with.
+    /// and spotlights now keep their own, starting from the radius they drew with. Up to 0.1.3 the
+    /// pen chose a pattern, where dotted was dashed with zero-length dashes.
     static func migrate(_ stored: [String: Any]) -> [String: Any] {
         var stored = stored
+        if let pattern = stored.removeValue(forKey: "penPattern") as? String {
+            stored["penStyle"] = pattern == "dotted" ? "dashed" : pattern
+            if pattern == "dotted" { stored["penOptions"] = ["dashLength": 0.0] }
+        }
         guard let radius = stored.removeValue(forKey: "cornerRadius") as? Double else { return stored }
         let overrides = stored["overrides"] as? [String: [String: Any]] ?? [:]
         for (tool, key) in [(DrawingTool.rectangle, "rectangleCornerRadius"), (.spotlight, "spotlightCornerRadius")] where stored[key] == nil {

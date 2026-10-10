@@ -1,17 +1,21 @@
 import CoreGraphics
+import Foundation
 
 /// One drawing in view points. Shapes use their first and last point; freehand tools and curved
 /// arrows use all, a curved arrow to find which way to bend.
 struct Mark: Equatable, Sendable {
     let tool: DrawingTool
     var points: [CGPoint]
+    /// When each point arrived, in seconds; ink pens draw thinner where the pointer moved faster.
+    var times: [TimeInterval]
     let style: ToolStyle
     /// Shift: straight freehand lines, 45° arrows, and squares.
     var isConstrained = false
 
-    init(tool: DrawingTool, at point: CGPoint, style: ToolStyle) {
+    init(tool: DrawingTool, at point: CGPoint, style: ToolStyle, time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         self.tool = tool
         points = [point]
+        times = [time]
         self.style = style
     }
 
@@ -33,11 +37,12 @@ struct Mark: Equatable, Sendable {
         tool == .pen || tool == .highlighter || (tool == .arrow && style.arrow == .curved)
     }
 
-    mutating func add(_ point: CGPoint) {
-        guard keepsPath else { points = [start, point]; return }
+    mutating func add(_ point: CGPoint, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        guard keepsPath else { points = [start, point]; times = [times[0], time]; return }
         // Skip sub-point jitter; it only adds path segments.
         if let last = points.last, hypot(point.x - last.x, point.y - last.y) < 1 { return }
         points.append(point)
+        times.append(time)
     }
 
     /// Too small to keep, like a click without a drag.
@@ -57,6 +62,7 @@ struct Mark: Equatable, Sendable {
         guard tool == .highlighter, let tolerance = style.straightenTolerance, !isConstrained, points.count > 2,
               MarkGeometry.isNearlyStraight(points, tolerance: tolerance) else { return }
         points = [start, points[points.count - 1]]
+        times = [times[0], times[times.count - 1]]
     }
 
     /// How to draw the mark in its color and width. Spotlights cut the dimming with `path` instead.
@@ -64,15 +70,27 @@ struct Mark: Equatable, Sendable {
         let width = style.width
         switch tool {
         case .pen, .highlighter:
+            let isLine = isConstrained || points.count == 2
+            let options = style.strokeOptions
+            // Ink and calligraphy are filled outlines, so dashes never apply to them.
+            if style.stroke == .ink || style.stroke == .calligraphy {
+                let centerline = isLine ? (points: [start, end], times: [times[0], times[times.count - 1]])
+                    : MarkGeometry.resample(points, times: times, spacing: 2)
+                let outline = style.stroke == .ink
+                    ? MarkGeometry.inkOutline(centerline.points, times: centerline.times, width: width,
+                                              thinning: options.thinning / 100, taper: options.taper)
+                    : MarkGeometry.calligraphyOutline(centerline.points, width: width, nibAngle: options.nibAngle, nibEdge: options.nibEdge / 100)
+                return Paint(path: outline, fill: 1, stroke: false)
+            }
             let path: CGPath
-            if isConstrained || points.count == 2 {
+            if isLine {
                 let line = CGMutablePath(); line.move(to: start); line.addLine(to: end)
                 path = line
             } else {
                 path = MarkGeometry.smoothPath(points)
             }
             if tool == .highlighter { return Paint(path: path, cap: style.hasFlatTips ? .butt : .round) }
-            return Paint(path: path, dash: style.pattern.dash(width: width))
+            return Paint(path: path, dash: style.stroke == .dashed ? options.dashLengths(width: width) : [])
         case .arrow:
             let bend = style.arrow == .curved ? MarkGeometry.bend(from: start, to: end, along: points) : nil
             return Paint(path: MarkGeometry.arrow(from: start, to: end, width: width, style: style.arrow, bend: bend,
@@ -80,8 +98,8 @@ struct Mark: Equatable, Sendable {
         case .rectangle:
             let rounded = style.cornerRadius > 0
             return Paint(path: MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: style.cornerRadius),
-                         fill: style.isTinted ? 0.2 : 0, dash: style.pattern.dash(width: width),
-                         cap: style.pattern == .solid ? .round : .butt, join: rounded ? .round : .miter)
+                         fill: style.isTinted ? 0.2 : 0, dash: style.stroke == .dashed ? style.strokeOptions.dashLengths(width: width) : [],
+                         cap: style.stroke == .solid ? .round : .butt, join: rounded ? .round : .miter)
         case .spotlight:
             return Paint(path: MarkGeometry.roundedRect(MarkGeometry.rect(start, end), radius: style.cornerRadius), fill: 1, stroke: false)
         }
@@ -100,14 +118,11 @@ struct Paint {
     var join = CGLineJoin.round
 }
 
-extension StrokePattern {
-    /// Dash lengths for a stroke `width` wide. Round caps add half a width to each end of a dash.
-    func dash(width: CGFloat) -> [CGFloat] {
-        switch self {
-        case .solid: []
-        case .dashed: [width * 2, width * 2.5]
-        case .dotted: [0, width * 2]
-        }
+extension StrokeOptions {
+    /// Dash and gap lengths for a stroke `width` wide. Round caps add half a width to each end of a
+    /// dash, so zero-length dashes draw as dots, and the gap grows a little with the dash.
+    func dashLengths(width: CGFloat) -> [CGFloat] {
+        [dashLength * width, width * (2 + 0.25 * dashLength)]
     }
 }
 
@@ -155,6 +170,94 @@ enum MarkGeometry {
             path.addQuadCurve(to: CGPoint(x: (point.x + next.x) / 2, y: (point.y + next.y) / 2), control: point)
         }
         path.addLine(to: points[points.count - 1])
+        return path
+    }
+
+    /// Points about `spacing` apart along the curve `smoothPath` draws, each with the time the
+    /// pointer passed it. Even spacing lets outlines vary their width smoothly.
+    static func resample(_ points: [CGPoint], times: [TimeInterval], spacing: CGFloat) -> (points: [CGPoint], times: [TimeInterval]) {
+        guard points.count > 2 else { return (points, times) }
+        var out = [points[0]], outTimes = [times[0]]
+        var from = points[0], fromTime = times[0]
+        // Each curve ends at the midpoint of two points, halfway between their times; the last runs straight to the end.
+        let curves = (1..<(points.count - 1)).map { index in
+            let point = points[index], next = points[index + 1]
+            return (control: point, to: CGPoint(x: (point.x + next.x) / 2, y: (point.y + next.y) / 2), time: (times[index] + times[index + 1]) / 2)
+        } + [(control: points[points.count - 1], to: points[points.count - 1], time: times[times.count - 1])]
+        for curve in curves {
+            let length = hypot(curve.control.x - from.x, curve.control.y - from.y) + hypot(curve.to.x - curve.control.x, curve.to.y - curve.control.y)
+            let steps = max(1, Int((length / spacing).rounded(.up)))
+            for step in 1...steps {
+                let t = CGFloat(step) / CGFloat(steps)
+                out.append(quadPoint(from, curve.control, curve.to, t))
+                outTimes.append(fromTime + (curve.time - fromTime) * Double(t))
+            }
+            from = curve.to; fromTime = curve.time
+        }
+        return (out, outTimes)
+    }
+
+    /// The outline of an ink stroke: `width` at rest, thinned by up to `thinning` (0...1) where the
+    /// pointer moved fast, and tapering over `taper` line widths at both ends. Points should be
+    /// evenly spaced; speed is smoothed so one slow sample does not leave a blob.
+    static func inkOutline(_ points: [CGPoint], times: [TimeInterval], width: CGFloat, thinning: CGFloat, taper: CGFloat) -> CGPath {
+        let fullSpeed: CGFloat = 1800 // points per second
+        var distances: [CGFloat] = [0]
+        for index in 1..<max(points.count, 1) {
+            distances.append(distances[index - 1] + hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y))
+        }
+        let length = distances[distances.count - 1], taperLength = taper * width + 2
+        var speed: CGFloat = 0
+        let radii = points.indices.map { index -> CGFloat in
+            if index > 0 {
+                let sampleSpeed = (distances[index] - distances[index - 1]) / max(CGFloat(times[index] - times[index - 1]), 0.0004)
+                speed += 0.2 * (sampleSpeed - speed)
+            }
+            let thinned = width * (1 - thinning * min(1, speed / fullSpeed))
+            let fromEnd = min(distances[index], length - distances[index])
+            return max(0.25, thinned * (0.2 + 0.8 * min(1, fromEnd / taperLength))) / 2
+        }
+        return band(points, radii: radii)
+    }
+
+    /// The outline of a calligraphy stroke: a flat nib `width` long at `nibAngle` degrees sweeps
+    /// along the points, so the stroke is widest across the nib and `nibEdge` (0...1) of the width
+    /// along it.
+    static func calligraphyOutline(_ points: [CGPoint], width: CGFloat, nibAngle: CGFloat, nibEdge: CGFloat) -> CGPath {
+        let angle = -nibAngle * .pi / 180
+        let nib = CGPoint(x: cos(angle) * width / 2, y: sin(angle) * width / 2)
+        let path = band(points, radii: points.map { _ in max(0.3, width * nibEdge) / 2 })
+        for index in 1..<max(points.count, 1) {
+            let from = points[index - 1], to = points[index]
+            // Each swept parallelogram winds the same way as the band, so a nonzero fill unions them.
+            let windsBackward = (to.x - from.x) * nib.y - (to.y - from.y) * nib.x > 0
+            let corners = [CGPoint(x: from.x + nib.x, y: from.y + nib.y), CGPoint(x: to.x + nib.x, y: to.y + nib.y),
+                           CGPoint(x: to.x - nib.x, y: to.y - nib.y), CGPoint(x: from.x - nib.x, y: from.y - nib.y)]
+            path.addLines(between: windsBackward ? corners.reversed() : corners)
+            path.closeSubpath()
+        }
+        return path
+    }
+
+    /// A stroke with a round dot of `radii[i]` at each point and a quad joining neighboring dots.
+    /// Every subpath winds the same way, so a nonzero fill draws their union with no seams, even
+    /// where the stroke doubles back on itself.
+    private static func band(_ points: [CGPoint], radii: [CGFloat]) -> CGMutablePath {
+        let path = CGMutablePath()
+        for (point, radius) in zip(points, radii) {
+            path.addLines(between: (0..<16).map { CGPoint(x: point.x + radius * cos(CGFloat($0) * .pi / 8), y: point.y + radius * sin(CGFloat($0) * .pi / 8)) })
+            path.closeSubpath()
+        }
+        for index in 1..<max(points.count, 1) {
+            let from = points[index - 1], to = points[index]
+            let length = hypot(to.x - from.x, to.y - from.y)
+            guard length > 0 else { continue }
+            let normal = CGPoint(x: -(to.y - from.y) / length, y: (to.x - from.x) / length)
+            let (a, b) = (radii[index - 1], radii[index])
+            path.addLines(between: [CGPoint(x: from.x - normal.x * a, y: from.y - normal.y * a), CGPoint(x: to.x - normal.x * b, y: to.y - normal.y * b),
+                                    CGPoint(x: to.x + normal.x * b, y: to.y + normal.y * b), CGPoint(x: from.x + normal.x * a, y: from.y + normal.y * a)])
+            path.closeSubpath()
+        }
         return path
     }
 

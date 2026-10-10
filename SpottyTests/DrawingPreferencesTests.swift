@@ -22,6 +22,19 @@ final class DrawingPreferencesTests: XCTestCase {
         XCTAssertNil(drawing.overrides[.arrow], "Clearing the last override removes the entry")
     }
 
+    func testToolsFollowTheDefaultFadeUnlessTheyHaveTheirOwn() {
+        var drawing = DrawingPreferences()
+        drawing.fadeDelay = 3
+        drawing[overrides: .rectangle].fadeDelay = 30
+        XCTAssertEqual(drawing.fadeAfter(for: .pen), .seconds(3))
+        XCTAssertEqual(drawing.fadeAfter(for: .highlighter), .seconds(3), "The highlighter follows the default fade too")
+        XCTAssertEqual(drawing.fadeAfter(for: .rectangle), .seconds(30))
+
+        drawing.fadesDrawings = false
+        XCTAssertNil(drawing.fadeAfter(for: .rectangle), "Off keeps every tool's drawings, whatever their own delay")
+        XCTAssertEqual(drawing[overrides: .rectangle].fadeDelay, 30, "The tool's delay waits for fading to come back")
+    }
+
     func testToolbarColorChangesTheToolsOwnColorOrTheDefault() {
         var drawing = DrawingPreferences()
         drawing[overrides: .arrow].color = .annotationBlue
@@ -59,5 +72,22 @@ final class DrawingPreferencesTests: XCTestCase {
         let reloaded = AppPreferences(defaults: defaults)
         XCTAssertEqual(reloaded.drawing.rectangleCornerRadius, 12, "Saved radii are not migrated again")
         XCTAssertEqual(reloaded.drawing.spotlightCornerRadius, 20)
+    }
+
+    func testDottedPensBecomeDashedWithZeroLengthDashes() throws {
+        let suite = "DrawingPreferencesTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(Data(#"{"penPattern": "dotted"}"#.utf8), forKey: "preferences.v1.drawing")
+        let dotted = AppPreferences(defaults: defaults).drawing
+        XCTAssertEqual(dotted.penStyle, .dashed)
+        XCTAssertEqual(dotted.penOptions.dashLength, 0)
+        XCTAssertEqual(dotted.penOptions.thinning, 69, "Other options keep their defaults")
+
+        defaults.set(Data(#"{"penPattern": "dashed"}"#.utf8), forKey: "preferences.v1.drawing")
+        let dashed = AppPreferences(defaults: defaults).drawing
+        XCTAssertEqual(dashed.penStyle, .dashed)
+        XCTAssertEqual(dashed.penOptions, StrokeOptions())
     }
 }

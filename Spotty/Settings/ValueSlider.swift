@@ -25,8 +25,8 @@ struct ValueSlider: View {
                 .labelsHidden()
                 .frame(width: 140)
             HStack(spacing: 3) {
-                // Parses with the user's locale.
-                TextField(title, value: snapped, format: .number.precision(.fractionLength(0)))
+                // Parses with the user's locale. Fractional steps show one decimal.
+                TextField(title, value: snapped, format: .number.precision(.fractionLength(0...(step < 1 ? 1 : 0))))
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()

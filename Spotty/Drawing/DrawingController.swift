@@ -18,7 +18,7 @@ final class DrawingController {
         self.commands = commands
         session = DrawingSession(tool: preferences.drawing.resolvedStartTool)
         overlay.style = { [weak self] in self?.markStyle }
-        overlay.fadeAfter = { [weak self] in self?.preferences.drawing.fadeAfter }
+        overlay.fadeAfter = { [weak self] tool in self?.preferences.drawing.fadeAfter(for: tool) }
         overlay.didDraw = { [weak self] in self?.update { $0.didDraw() } }
         overlay.handleKey = { [weak self] in self?.handleKey($0) ?? false }
     }

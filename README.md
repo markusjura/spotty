@@ -13,29 +13,6 @@ Spotty needs macOS 26 or later.
 
 Spotty runs from the menu bar. On first launch, it asks you to allow Accessibility in System Settings, which the default ⌃⇧ shortcut and mouse button shortcuts need.
 
-## Using it
-
-Every drawing shortcut works two ways:
-
-- Hold it to draw until you let go. Each drawing fades 2 seconds after you finish it, adjustable in Settings > Drawing.
-- Tap it to keep drawing on. Tap it again, press Escape, or click Done to stop.
-
-The defaults, all changeable in Settings > Shortcuts:
-
-| Shortcut | Action |
-|----------|--------|
-| ⌃⇧ | Draw with the last used tool, or the start tool set in Settings > Drawing |
-| ⌃⇧P, ⌃⇧H, ⌃⇧A, ⌃⇧R, ⌃⇧S | Draw with the pen, highlighter, arrow, rectangle, or spotlight |
-| ⌃⇧D | Toggle drawing on or off with the last used tool or the start tool, without holding |
-| ⌃⇧Z | Undo the last drawing |
-| ⌃⇧⌫ | Clear all drawings |
-
-While holding one drawing shortcut, press another to switch tools: hold ⌃⇧, press A, and drag an arrow. Holding a mouse button shortcut and moving the mouse draws, no left click needed. While holding it, the plain letters P, H, A, R, and S switch tools, because your hand is off the modifiers. While drawing is toggled on, the plain letters P, H, A, R, and S pick tools, ⌘Z or Delete removes the last drawing, ⌘⌫ clears everything, and a toolbar at the top of the screen offers the tools and colors. Shift draws straight lines, 45° arrows, and squares, unless Shift is part of the shortcut you are holding.
-
-Every drawing shortcut and action takes a second shortcut, so a mouse button can sit beside a key chord. A shortcut can be a key with modifiers, a function key on its own (handy for mouse buttons remapped to F13 to F20), two or more modifiers alone, or a middle or side mouse button. Spotty swallows a bound mouse button, so binding Mouse 4 never also means Back in your browser.
-
-Highlighter strokes that are nearly straight snap to a straight line, so highlighting a line of text with a mouse looks clean. Spotlights dim everything else on that display.
-
 ## Build and test
 
 Requires an Apple Silicon Mac, macOS 26 or later, Xcode 27, and an Apple Development signing identity. To build on a second Mac, import that identity's certificate and private key instead of letting Xcode create a new certificate, so both sign with the same designated requirement. Create a gitignored `Local.xcconfig` in the repository root containing `DEVELOPMENT_TEAM = YOUR_TEAM_ID`. The shared project includes it through `Config/Signing.xcconfig`; no certificate or private key belongs in the repository.

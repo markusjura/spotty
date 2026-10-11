@@ -38,7 +38,7 @@ Highlighter strokes that are nearly straight snap to a straight line, so highlig
 
 ## Build and test
 
-Requires an Apple Silicon Mac, macOS 26 or later, Xcode 27, and the existing Apple Development signing identity shared with Shotty. On another Mac, import that identity's certificate and private key instead of letting Xcode create a new certificate, so every Mac signs with the same designated requirement. Create a gitignored `Local.xcconfig` in the repository root containing `DEVELOPMENT_TEAM = YOUR_TEAM_ID`. The shared project includes it through `Config/Signing.xcconfig`; no certificate or private key belongs in the repository.
+Requires an Apple Silicon Mac, macOS 26 or later, Xcode 27, and an Apple Development signing identity. To build on a second Mac, import that identity's certificate and private key instead of letting Xcode create a new certificate, so both sign with the same designated requirement. Create a gitignored `Local.xcconfig` in the repository root containing `DEVELOPMENT_TEAM = YOUR_TEAM_ID`. The shared project includes it through `Config/Signing.xcconfig`; no certificate or private key belongs in the repository.
 
 Open `Spotty.xcodeproj` and select the shared Spotty scheme, or run:
 
@@ -67,7 +67,7 @@ The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its o
 
 `Scripts/package.sh` refuses to run unless the working tree is clean and `HEAD` is `origin/main`, so each version names one pushed commit. It builds Release, refuses to continue unless `codesign --verify --deep --strict` passes and the bundle ID is `local.markus.Spotty`, and writes to `.build/releases/`:
 
-- `Spotty-<version>.zip`, created with `ditto` so the signature survives. `install.sh` and fleet use it.
+- `Spotty-<version>.zip`, created with `ditto` so the signature survives. `install.sh` and Sparkle updates use it.
 - `Spotty-<version>.dmg`, built by `uvx dmgbuild` from `Config/dmg.py`. It opens to a window for dragging Spotty onto Applications. `swift Scripts/GenerateDMGBackground.swift Config` redraws its background.
 - A `.sha256` checksum beside each.
 - A `.txt` record of the signing authority, team, designated requirement, and entitlements.
@@ -77,12 +77,6 @@ The Debug build is Spotty Dev, bundle ID `local.markus.Spotty.dev`. It has its o
 To install on the same Mac, run `Scripts/install.sh .build/releases/Spotty-<version>.zip`. It refuses a version older than the installed one and asks a running Spotty to quit first, like its Quit menu item.
 
 The installer checks the checksum when the `.sha256` file is present, verifies the signature and bundle ID, and warns before installing a build whose designated requirement differs from the installed one, because macOS ties permission grants to it. It replaces `/Applications/Spotty.app` by renaming and keeps the replaced build at `~/Library/Application Support/Spotty Installer.noindex/Spotty.previous.app`. `Scripts/install.sh --rollback` swaps the two. Settings in UserDefaults are never touched.
-
-## Fleet
-
-Install on any fleet Mac as above. Fleet sync from `markusjura/mac-settings` then observes the newer version in `/Applications`, archives it, and installs it on the other Macs within minutes. It quits a running Spotty gracefully and reopens it afterwards. Fleet refuses builds whose designated requirement differs from the one pinned in its policy. Check progress with `fleet status` (`spotty.activation`). Fleet never lowers its target, so it reinstalls the newer version within minutes of `install.sh --rollback`. Set `spotty.enabled` to false in the fleet policy first, or fix forward with a higher version.
-
-A Mac that receives Spotty for the first time leaves it closed. Open it once there and approve the Accessibility prompt.
 
 ## Permissions
 

@@ -25,6 +25,8 @@ struct SpottyApp: App {
             get: { delegate.preferences.general.showsMenuBarIcon },
             set: { delegate.preferences.general.showsMenuBarIcon = $0 })) {
             SpottyMenu(drawing: delegate.drawing, inputTap: delegate.inputTap, updater: delegate.updater)
+                // Menus leave out item icons unless asked for them.
+                .labelStyle(.titleAndIcon)
         } label: {
             MenuBarLabel(showsUpdateDot: delegate.updater.needsAttention)
         }
@@ -76,27 +78,24 @@ private struct SpottyMenu: View {
 
     var body: some View {
         let commands = drawing.commands
-        Button(drawing.isDrawing ? "Stop Drawing" : "Draw") { drawing.perform(.toggleDrawing) }
-            .keyboardShortcut(commands.shortcut(for: .toggleDrawing)?.keyboardShortcut)
+        Button(drawing.isDrawing ? "Stop Drawing" : "Draw", systemImage: drawing.isDrawing ? "stop.circle" : "pencil.and.scribble") {
+            drawing.perform(.toggleDrawing)
+        }
+        .keyboardShortcut(commands.shortcut(for: .toggleDrawing)?.keyboardShortcut)
         Divider()
         ForEach(DrawingTool.allCases, id: \.self) { tool in
             Toggle(isOn: Binding(get: { drawing.isDrawing && drawing.session.tool == tool }, set: { _ in drawing.toggle(tool) })) {
-                Text(tool.title)
+                Label(tool.title, systemImage: tool.symbol)
             }
             .keyboardShortcut(commands.shortcut(for: .draw(tool))?.keyboardShortcut)
         }
         Divider()
-        Button(CommandID.undo.title) { drawing.perform(.undo) }
-            .keyboardShortcut(commands.shortcut(for: .undo)?.keyboardShortcut)
-        Button(CommandID.clear.title) { drawing.perform(.clear) }
-            .keyboardShortcut(commands.shortcut(for: .clear)?.keyboardShortcut)
-        Divider()
         if commands.needsEventTap && !inputTap.isTrusted {
-            Button("Allow Accessibility Access…") { inputTap.requestAccess() }
+            Button("Allow Accessibility Access…", systemImage: "accessibility") { inputTap.requestAccess() }
         }
         UpdateMenuItem(updater: updater)
         SettingsButton()
-        Button("Quit Spotty") { NSApp.terminate(nil) }.keyboardShortcut("q")
+        Button("Quit") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }
 

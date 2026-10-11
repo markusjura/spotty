@@ -7,10 +7,10 @@ struct UpdateMenuItem: View {
     var body: some View {
         switch updater.status {
         case .available(let release):
-            Button("Update to Spotty \(release.version)") { updater.showUpdate() }
+            Button("Update to Spotty \(release.version)", systemImage: "arrow.down.circle") { updater.showUpdate() }
             Divider()
         case .ready(_, asksForRelaunch: true):
-            Button("Relaunch to Update") { updater.relaunch() }
+            Button("Relaunch to Update", systemImage: "arrow.clockwise") { updater.relaunch() }
             Divider()
         case .idle, .checking, .failed, .downloading, .ready:
             EmptyView()

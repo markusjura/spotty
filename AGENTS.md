@@ -11,6 +11,7 @@ Spotty is Shotty's sibling. Keep shared patterns (Settings layout, `CommandRegis
 - `Scripts/test.sh [TestClass]` runs all unit tests or one class.
 - `Scripts/log.sh` streams Spotty's log: shortcut events and drawing mode changes.
 - Run `Scripts/release.sh` and `Scripts/publish.sh` only when I ask.
+- In a new worktree, run `./.worktree-setup.sh` once if the build fails with "Signing for Spotty requires a development team". It links `Local.xcconfig` from the main checkout, and not every worktree tool runs it.
 
 ## Verifying drawing
 
@@ -20,6 +21,13 @@ Computer Use cannot hold a key or mouse button while dragging, which every hold-
 - Posted input moves the real pointer and types for real. Only use it while the Mac is unlocked and nobody is using it.
 - Never post input while Computer Use shows its "ChatGPT is Using Your Mac" shield. The first posted key dismisses the shield and drops the Mac to the real lock screen, where further keys type into the password field.
 - Modifier-only and mouse button shortcuts need Accessibility for the build that runs. Grants follow the designated requirement, which includes the bundle ID, so Spotty Dev needs its own grant once. It then survives rebuilds signed with the same identity.
+
+### Menu bar menu
+
+System Events opens the menu without moving the pointer: `osascript -e 'tell application "System Events" to tell process "Spotty Dev" to click menu bar item 1 of menu bar 2' &`. The menu is the layer 101 window in `spotty-ui windows`. Close it with `perform action "AXCancel" of menu 1 of menu bar item 1 of menu bar 2`, or click a `menu item "<title>" of menu 1 …` to run it.
+
+- `click` on the menu bar item toggles, so a second one closes an open menu.
+- The first use from a new host app shows macOS's Automation prompt for System Events, and the commands block until I answer it.
 
 ### Clean up
 

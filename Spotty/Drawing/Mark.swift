@@ -56,12 +56,24 @@ struct Mark: Equatable, Sendable {
         }
     }
 
-    /// Straightens a highlighter stroke that was meant as a line, as along a line of text, when
-    /// the highlighter straightens strokes.
+    /// The line a pen or highlighter stroke draws as: Shift's snapped line, a highlighter stroke
+    /// that is nearly straight while the highlighter straightens strokes, or a two-point stroke.
+    /// Nil draws freehand. Painting reads it during the drag too, so a stroke shows straight as
+    /// it is drawn, and turns freehand once it wavers past the tolerance.
+    private var line: (start: CGPoint, end: CGPoint)? {
+        if isConstrained { return (start, end) }
+        if tool == .highlighter, let tolerance = style.straightenTolerance,
+           MarkGeometry.isNearlyStraight(points, tolerance: tolerance) {
+            let end = points[points.count - 1]
+            return style.straightenAngle == .axes ? MarkGeometry.leveled(from: start, to: end) : (start, end)
+        }
+        return points.count == 2 ? (start, end) : nil
+    }
+
+    /// Keeps only the ends of a straightened highlighter stroke.
     mutating func finish() {
-        guard tool == .highlighter, let tolerance = style.straightenTolerance, !isConstrained, points.count > 2,
-              MarkGeometry.isNearlyStraight(points, tolerance: tolerance) else { return }
-        points = [start, points[points.count - 1]]
+        guard tool == .highlighter, !isConstrained, points.count > 2, let line else { return }
+        points = [line.start, line.end]
         times = [times[0], times[times.count - 1]]
     }
 
@@ -70,12 +82,12 @@ struct Mark: Equatable, Sendable {
         let width = style.width
         switch tool {
         case .pen, .highlighter:
-            let isLine = isConstrained || points.count == 2
+            let line = self.line
             let options = style.strokeOptions
             // Ink and calligraphy are filled outlines, so dashes never apply to them.
             if style.stroke == .ink || style.stroke == .calligraphy {
-                let centerline = isLine ? (points: [start, end], times: [times[0], times[times.count - 1]])
-                    : MarkGeometry.resample(points, times: times, spacing: 2)
+                let centerline = line.map { (points: [$0.start, $0.end], times: [times[0], times[times.count - 1]]) }
+                    ?? MarkGeometry.resample(points, times: times, spacing: 2)
                 let outline = style.stroke == .ink
                     ? MarkGeometry.inkOutline(centerline.points, times: centerline.times, width: width,
                                               thinning: options.thinning / 100, taper: options.taper)
@@ -83,9 +95,9 @@ struct Mark: Equatable, Sendable {
                 return Paint(path: outline, fill: 1, stroke: false)
             }
             let path: CGPath
-            if isLine {
-                let line = CGMutablePath(); line.move(to: start); line.addLine(to: end)
-                path = line
+            if let line {
+                let linePath = CGMutablePath(); linePath.move(to: line.start); linePath.addLine(to: line.end)
+                path = linePath
             } else {
                 path = MarkGeometry.smoothPath(points)
             }
@@ -154,6 +166,14 @@ enum MarkGeometry {
         // Short strokes are scribbles, not lines.
         guard length >= 24 else { return false }
         return points.allSatisfy { abs(($0.x - first.x) * dy - ($0.y - first.y) * dx) / length <= tolerance }
+    }
+
+    /// The horizontal or vertical line from `start` closest to the line from `start` to `end`,
+    /// spanning the same columns or rows. It stays put while a drag drifts, only growing.
+    static func leveled(from start: CGPoint, to end: CGPoint) -> (start: CGPoint, end: CGPoint) {
+        abs(end.x - start.x) >= abs(end.y - start.y)
+            ? (start, CGPoint(x: end.x, y: start.y))
+            : (start, CGPoint(x: start.x, y: end.y))
     }
 
     /// Quadratic curves through the midpoints of consecutive points, which hides mouse sampling corners.

@@ -113,8 +113,11 @@ struct DrawingSettingsPane: View {
             option("Straighten strokes", note: "Shift always draws a straight line.") {
                 Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch).controlSize(.mini)
             }
-            option("Tolerance", note: "How much a stroke may waver.") {
-                ValueSlider("Tolerance", value: drawing.straightenTolerance, in: DrawingPreferences.straightenToleranceRange, unit: "pt")
+            Group {
+                styleRow("Angle", tool, drawing.straightenAngle)
+                option("Tolerance", note: "Max drift from the line.") {
+                    ValueSlider("Tolerance", value: drawing.straightenTolerance, in: DrawingPreferences.straightenToleranceRange, unit: "pt")
+                }
             }
             .disabled(!preferences.drawing.straightensHighlighter)
         case .arrow:

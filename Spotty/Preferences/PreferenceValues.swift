@@ -81,6 +81,9 @@ struct StrokeOptions: Codable, Equatable, Sendable {
     }
 }
 enum HighlighterTip: String, Codable, CaseIterable, Sendable { case round, flat }
+/// Which lines a straightened highlighter stroke may become: only horizontal or vertical ones, or
+/// a line at the stroke's own angle.
+enum StraightenAngle: String, Codable, CaseIterable, Sendable { case axes, any }
 /// Open draws the head as two strokes; curved bends toward where the drag went.
 enum ArrowStyle: String, Codable, CaseIterable, Sendable { case standard, open, double, curved }
 /// Tinted adds a light fill inside the outline.
@@ -113,6 +116,8 @@ struct ToolStyle: Equatable, Sendable {
     var hasFlatTips = false
     /// Highlighters: how far a stroke may waver and still straighten into a line; nil keeps it freehand.
     var straightenTolerance: Double?
+    /// Highlighters: which lines straightened strokes become.
+    var straightenAngle = StraightenAngle.axes
 }
 
 struct DrawingPreferences: Codable, Equatable, Sendable {
@@ -120,7 +125,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     static let highlighterWidthRange = 4.0...48.0
     static let cornerRadiusRange = 0.0...40.0
     static let arrowCornerRadiusRange = 0.0...12.0
-    static let straightenToleranceRange = 2.0...20.0
+    static let straightenToleranceRange = 2.0...50.0
     static let dimmingRange = 20.0...80.0
     static let fadeDelayRange = 0.5...600.0
 
@@ -147,6 +152,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var highlighterTip = HighlighterTip.flat
     var straightensHighlighter = false
     var straightenTolerance = 6.0
+    var straightenAngle = StraightenAngle.axes
 
     var arrowStyle = ArrowStyle.standard
     var arrowCornerRadius = 2.0
@@ -181,7 +187,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
             style.strokeOptions = penOptions
         case .highlighter:
             style = ToolStyle(color: highlighterColor, width: highlighterWidth, hasFlatTips: highlighterTip == .flat,
-                              straightenTolerance: straightensHighlighter ? straightenTolerance : nil)
+                              straightenTolerance: straightensHighlighter ? straightenTolerance : nil, straightenAngle: straightenAngle)
         case .arrow:
             style.arrow = arrowStyle
             style.cornerRadius = arrowCornerRadius

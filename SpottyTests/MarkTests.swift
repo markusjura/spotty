@@ -61,6 +61,32 @@ final class MarkTests: XCTestCase {
         XCTAssertEqual(mark(.pen, wobbly, style: straightening).points.count, wobbly.count, "Only the highlighter straightens")
     }
 
+    func testStraightenedHighlighterStrokesTurnHorizontalOrVerticalUnlessAnyAngleIsAllowed() {
+        var straightening = ToolStyle(color: .highlighterYellow, width: 16, straightenTolerance: 6)
+        let drifting = (0...20).map { CGPoint(x: Double($0) * 10, y: 100 + Double($0) * 0.6) }
+        XCTAssertEqual(mark(.highlighter, drifting, style: straightening).points, [CGPoint(x: 0, y: 100), CGPoint(x: 200, y: 100)],
+                       "A drifting stroke levels out where it started")
+        let falling = drifting.map { CGPoint(x: $0.y, y: $0.x) }
+        XCTAssertEqual(mark(.highlighter, falling, style: straightening).points, [CGPoint(x: 100, y: 0), CGPoint(x: 100, y: 200)])
+
+        straightening.straightenAngle = .any
+        XCTAssertEqual(mark(.highlighter, drifting, style: straightening).points, [drifting.first!, drifting.last!])
+    }
+
+    func testHighlighterStrokesShowStraightWhileDrawn() {
+        let straightening = ToolStyle(color: .highlighterYellow, width: 16, straightenTolerance: 6)
+        var live = Mark(tool: .highlighter, at: .zero, style: straightening, time: 0)
+        for x in stride(from: 10.0, through: 200, by: 10) { live.add(CGPoint(x: x, y: x * 0.02), at: x / 100) }
+        XCTAssertEqual(live.paint.path.boundingBox, CGRect(x: 0, y: 0, width: 200, height: 0), "The drag already paints the level line")
+        var finished = live
+        finished.finish()
+        XCTAssertEqual(finished.paint.path, live.paint.path, "Letting go changes nothing on screen")
+
+        live.add(CGPoint(x: 210, y: 30), at: 2.1)
+        XCTAssertEqual(live.points.count, 22, "Wavering past the tolerance turns the stroke freehand")
+        XCTAssertGreaterThan(live.paint.path.boundingBox.height, 20)
+    }
+
     func testCurvedArrowsBendTowardTheDrag() {
         let curved = ToolStyle(color: .annotationRed, width: 4, arrow: .curved)
         let start = CGPoint.zero, end = CGPoint(x: 100, y: 0)

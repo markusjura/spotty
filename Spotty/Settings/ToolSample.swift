@@ -110,7 +110,9 @@ enum ToolSample {
             return mark(tool, style, stride(from: 3.0, through: 31, by: 1).map { CGPoint(x: $0, y: 9 + 5 * sin(($0 - 3) / 4.5)) })
         case .highlighter:
             style.width = 8
-            return mark(tool, style, [CGPoint(x: 8, y: 9), CGPoint(x: 26, y: 9)])
+            // Level, except the any angle choice, which slants.
+            return mark(tool, style, style.straightenAngle == .any
+                        ? [CGPoint(x: 9, y: 5), CGPoint(x: 25, y: 13)] : [CGPoint(x: 8, y: 9), CGPoint(x: 26, y: 9)])
         case .arrow:
             style.width = 2
             style.cornerRadius = 0.5
@@ -144,7 +146,17 @@ extension HighlighterTip: StyleChoice {
         switch self { case .round: "Round tip"; case .flat: "Flat tip" }
     }
     func sampleStyle(_ base: ToolStyle) -> ToolStyle {
-        var style = base; style.hasFlatTips = self == .flat; style.color = style.color.withAlpha(0.45); return style
+        var style = base; style.hasFlatTips = self == .flat; style.straightenAngle = .axes
+        style.color = style.color.withAlpha(0.45); return style
+    }
+}
+
+extension StraightenAngle: StyleChoice {
+    var title: String {
+        switch self { case .axes: "Horizontal or vertical"; case .any: "Any angle" }
+    }
+    func sampleStyle(_ base: ToolStyle) -> ToolStyle {
+        var style = base; style.straightenAngle = self; style.color = style.color.withAlpha(0.45); return style
     }
 }
 

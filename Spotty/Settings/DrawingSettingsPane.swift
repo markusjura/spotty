@@ -33,7 +33,6 @@ struct DrawingSettingsPane: View {
                 Toggle("Fade drawings", isOn: $preferences.drawing.fadesDrawings)
                 LabeledContent("Fade after") { SecondsField("Fade after", value: $preferences.drawing.fadeDelay) }
                     .disabled(!preferences.drawing.fadesDrawings)
-                Text("Tools use these unless you change them below.").settingsNote()
             }
             Section("Tool styles") {
                 ForEach(DrawingTool.allCases, id: \.self) { tool in
@@ -110,7 +109,7 @@ struct DrawingSettingsPane: View {
                 ValueSlider("Line width", value: drawing.highlighterWidth, in: DrawingPreferences.highlighterWidthRange, unit: "pt")
             }
             fadeRow(tool)
-            option("Straighten strokes", note: "Shift always draws a straight line.") {
+            option("Straighten strokes") {
                 Toggle("Straighten strokes", isOn: drawing.straightensHighlighter).labelsHidden().toggleStyle(.switch).controlSize(.mini)
             }
             Group {

@@ -25,7 +25,7 @@ struct ShortcutSettingsPane: View {
     private func footer(for group: CommandGroup) -> some View {
         switch group {
         case .drawing:
-            Text("Hold a shortcut to draw until you let go. Tap it to keep drawing on, and tap it again or press Escape to stop. While holding one, press another to switch tools, such as ⌃⇧ and then A. Add a second shortcut, such as a mouse button, in the right column. While holding a mouse button, press a tool letter alone.")
+            Text("Hold a shortcut to draw, or tap it to keep drawing on until you tap it again. While holding one, press another tool's shortcut to switch tools, or just its letter while holding a mouse button.")
         case .actions:
             EmptyView()
         case .whileDrawing:
@@ -55,8 +55,7 @@ struct ShortcutSettingsPane: View {
                     .fixedSize()
             }
         }
-        let note = id == .toggleDrawing
-            ? "Toggle Drawing turns drawing on with the same tool as Draw, without holding. Press it again or Escape to stop." : nil
+        let note = id == .toggleDrawing ? "Starts with the same tool as Draw." : nil
         // Each modifier gets nil unless the ones before it do, so the row never gets two notes.
         return row
             .settingsRowWarning(problem)

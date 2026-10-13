@@ -45,6 +45,8 @@ final class OverlayView: NSView {
     var didFinish: (OverlayView, UUID, DrawingTool) -> Void = { _, _, _ in }
     /// Returns true when the key was handled.
     var handleKey: (NSEvent) -> Bool = { _ in false }
+    /// Called when a spotlight's dimming has faded out, so the panel may hide.
+    var didHideDimming: () -> Void = { }
 
     /// A mark and the layer that draws it. A live spotlight keeps a hidden layer and cuts a hole in `dimming` instead.
     private struct Drawn {
@@ -59,13 +61,19 @@ final class OverlayView: NSView {
     private var marks: [Drawn] = []
     private var live: Drawn?
     private var currentDimming: CGFloat = 0.5
+    /// Whether the dimming is shown or fading in for a live spotlight.
+    private var dimsScreen = false
+    /// Whether any dimming is visible, including a spotlight still fading out. The panel must stay up meanwhile.
+    private(set) var showsDimming = false
+    /// Counts dimming fades, so a replaced fade's completion does nothing.
+    private var dimmingFade = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.addSublayer(content)
         dimming.fillColor = NSColor.black.cgColor
-        dimming.isHidden = true
+        dimming.opacity = 0
         content.addSublayer(dimming)
     }
 
@@ -160,14 +168,51 @@ final class OverlayView: NSView {
         }
     }
 
-    /// Dims everything outside the spotlight being dragged, if any.
+    /// Dims everything outside the spotlight being dragged. The dimming fades in when a spotlight
+    /// starts and fades out with its last hole when it ends.
     private func updateDimming() {
-        let spotlight = live.flatMap { $0.mark.tool == .spotlight ? $0.mark.paint.path : nil }
-        withoutAnimation {
-            dimming.isHidden = spotlight == nil
-            dimming.opacity = Float(currentDimming)
-            dimming.path = spotlight.map { MarkGeometry.dimming(bounds, spotlight: $0) }
+        if let spotlight = live.flatMap({ $0.mark.tool == .spotlight ? $0.mark.paint.path : nil }) {
+            withoutAnimation { dimming.path = MarkGeometry.dimming(bounds, spotlight: spotlight) }
+            guard !dimsScreen else { return }
+            dimsScreen = true
+            showsDimming = true
+            fadeDimming(to: currentDimming, over: Chrome.spotlightFadeInDuration)
+        } else if dimsScreen {
+            dimsScreen = false
+            fadeDimming(to: 0, over: Chrome.spotlightFadeOutDuration) { [weak self] in
+                guard let self else { return }
+                showsDimming = false
+                withoutAnimation { dimming.path = nil }
+                didHideDimming()
+            }
         }
+    }
+
+    /// Fades the dimming from wherever it is now, so a spotlight started during a fade-out picks
+    /// it up mid-way. `done` runs once the fade completes, unless another fade replaced it.
+    private func fadeDimming(to opacity: CGFloat, over duration: TimeInterval, then done: @escaping @MainActor () -> Void = {}) {
+        dimmingFade += 1
+        let fade = dimmingFade
+        let from = dimming.presentation()?.opacity ?? dimming.opacity
+        withoutAnimation { dimming.opacity = Float(opacity) }
+        guard !Chrome.reduceMotion else {
+            dimming.removeAnimation(forKey: "fade")
+            done()
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            MainActor.assumeIsolated {
+                if self?.dimmingFade == fade { done() }
+            }
+        }
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = from
+        animation.toValue = Float(opacity)
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        dimming.add(animation, forKey: "fade")
+        CATransaction.commit()
     }
 
     // MARK: Editing
@@ -186,7 +231,15 @@ final class OverlayView: NSView {
         }
         marks.removeAll()
         live = nil
-        updateDimming()
+        // Clearing is instant, dimming included.
+        dimmingFade += 1
+        dimsScreen = false
+        showsDimming = false
+        withoutAnimation {
+            dimming.removeAnimation(forKey: "fade")
+            dimming.opacity = 0
+            dimming.path = nil
+        }
     }
 
     // MARK: Fading

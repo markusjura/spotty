@@ -26,6 +26,11 @@ final class Overlay {
 
     var hasDrawings: Bool { !history.isEmpty }
 
+    /// Panels hide once drawing is off and nothing shows on them, including a fading spotlight.
+    private var canHidePanels: Bool {
+        !isActive && !hasDrawings && !panels.values.contains { $0.view.showsDimming }
+    }
+
     /// Whether a drag is drawing a mark large enough to keep right now.
     var isDrawingMark: Bool { panels.values.contains { $0.view.hasLiveMark } }
 
@@ -67,7 +72,7 @@ final class Overlay {
             if panel.isKeyWindow { panel.resignKey() }
         }
         NSCursor.arrow.set()
-        if !hasDrawings { hidePanels() }
+        if canHidePanels { hidePanels() }
     }
 
     /// The view drawing a mark from a held mouse button shortcut, which AppKit never sees as a drag.
@@ -95,7 +100,7 @@ final class Overlay {
     func undo() {
         guard let last = history.popLast() else { return }
         last.view.remove(last.mark)
-        if !isActive && !hasDrawings { hidePanels() }
+        if canHidePanels { hidePanels() }
     }
 
     /// Pending fade timers find their marks gone and do nothing.
@@ -113,7 +118,7 @@ final class Overlay {
             await view?.fadeOut(mark)
             guard let self else { return }
             history.removeAll { $0.mark == mark }
-            if !isActive && !hasDrawings { hidePanels() }
+            if canHidePanels { hidePanels() }
         }
     }
 
@@ -141,6 +146,10 @@ final class Overlay {
             didDraw()
         }
         view.handleKey = { [weak self] event in self?.handleKey(event) ?? false }
+        view.didHideDimming = { [weak self] in
+            guard let self, canHidePanels else { return }
+            hidePanels()
+        }
         panel.contentView = view
         panels[display] = (panel, view)
     }

@@ -15,6 +15,10 @@ enum Chrome {
     static let fadeDuration: TimeInterval = 0.15
     /// Drawings fade out slower than chrome, so the eye can follow them leaving.
     static let drawingFadeDuration: TimeInterval = 0.4
+    /// A spotlight's dimming comes in fast, so it keeps up with the drag, and leaves a little
+    /// slower, so letting go never flashes the screen back.
+    static let spotlightFadeInDuration: TimeInterval = 0.12
+    static let spotlightFadeOutDuration: TimeInterval = 0.25
 
     static var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 }

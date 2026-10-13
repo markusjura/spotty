@@ -11,7 +11,7 @@ struct PermissionSettingsPane: View {
         Form {
             Section("Accessibility") {
                 status(inputTap.isTrusted, granted: "Allowed", missing: "Not allowed")
-                    .settingsRowNote("Needed only for modifier-only shortcuts, such as holding ⌃⇧, and for mouse button shortcuts. Shortcuts with a key work without it.")
+                    .settingsRowNote("Needed for modifier-only and mouse button shortcuts.")
                 if !inputTap.isTrusted {
                     HStack {
                         Button("Request Access") { inputTap.requestAccess() }

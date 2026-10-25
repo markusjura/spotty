@@ -101,7 +101,7 @@ final class DrawingController {
         session.heldSlot.flatMap(commands.shortcut(for:))?.mouseButton != nil
     }
 
-    private static let log = Logger(subsystem: "local.markus.Spotty", category: "drawing")
+    private static let log = Logger(subsystem: "local.markus.Spotty", category: "Drawing")
 
     private var markStyle: MarkStyle {
         let drawing = preferences.drawing

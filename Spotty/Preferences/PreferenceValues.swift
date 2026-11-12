@@ -81,8 +81,8 @@ struct StrokeOptions: Codable, Equatable, Sendable {
     }
 }
 enum HighlighterTip: String, Codable, CaseIterable, Sendable { case round, flat }
-/// Which lines a straightened highlighter stroke may become: only horizontal or vertical ones, or
-/// a line at the stroke's own angle.
+/// Which lines a straightened highlighter stroke or a line tool leg may become: only horizontal or
+/// vertical ones, or a line at the stroke's own angle.
 enum StraightenAngle: String, Codable, CaseIterable, Sendable { case axes, any }
 /// Open draws the head as two strokes; curved bends toward where the drag went.
 enum ArrowStyle: String, Codable, CaseIterable, Sendable { case standard, open, double, curved }
@@ -115,8 +115,9 @@ struct ToolStyle: Equatable, Sendable {
     /// Highlighters: square stroke ends instead of round ones.
     var hasFlatTips = false
     /// Highlighters: how far a stroke may waver and still straighten into a line; nil keeps it freehand.
+    /// Lines: how far a stroke may drift from its current leg before it turns a corner.
     var straightenTolerance: Double?
-    /// Highlighters: which lines straightened strokes become.
+    /// Highlighters and lines: which lines strokes become.
     var straightenAngle = StraightenAngle.axes
 }
 
@@ -146,6 +147,9 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
     var penStyle = StrokeStyle.solid
     var penOptions = StrokeOptions()
 
+    var lineAngle = StraightenAngle.axes
+    var lineTolerance = 12.0
+
     /// The highlighter has its own color and width, drawn translucent like a marker.
     var highlighterColor = RGBAColor.highlighterYellow
     var highlighterWidth = 16.0
@@ -171,7 +175,7 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
                 custom.color?.isValid ?? true && custom.width.map(Self.widthRange.contains) ?? true
                     && custom.fadeDelay.map(Self.fadeDelayRange.contains) ?? true
             }
-            && Self.straightenToleranceRange.contains(straightenTolerance)
+            && Self.straightenToleranceRange.contains(straightenTolerance) && Self.straightenToleranceRange.contains(lineTolerance)
             && Self.arrowCornerRadiusRange.contains(arrowCornerRadius)
             && Self.cornerRadiusRange.contains(rectangleCornerRadius) && Self.cornerRadiusRange.contains(spotlightCornerRadius)
             && Self.dimmingRange.contains(spotlightDimming) && Self.fadeDelayRange.contains(fadeDelay)
@@ -185,6 +189,9 @@ struct DrawingPreferences: Codable, Equatable, Sendable {
         case .pen:
             style.stroke = penStyle
             style.strokeOptions = penOptions
+        case .line:
+            style.straightenTolerance = lineTolerance
+            style.straightenAngle = lineAngle
         case .highlighter:
             style = ToolStyle(color: highlighterColor, width: highlighterWidth, hasFlatTips: highlighterTip == .flat,
                               straightenTolerance: straightensHighlighter ? straightenTolerance : nil, straightenAngle: straightenAngle)

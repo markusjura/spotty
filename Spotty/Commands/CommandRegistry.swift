@@ -28,9 +28,9 @@ enum CommandGroup: CaseIterable, Sendable {
 
 /// Stable IDs; custom bindings persist by raw value.
 enum CommandID: String, CaseIterable, Codable, Sendable {
-    case draw, drawPen, drawHighlighter, drawArrow, drawRectangle, drawSpotlight
+    case draw, drawPen, drawLine, drawHighlighter, drawArrow, drawRectangle, drawSpotlight
     case toggleDrawing, undo, clear
-    case pickPen, pickHighlighter, pickArrow, pickRectangle, pickSpotlight
+    case pickPen, pickLine, pickHighlighter, pickArrow, pickRectangle, pickSpotlight
 
     var title: String {
         switch self {
@@ -44,9 +44,9 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
 
     var group: CommandGroup {
         switch self {
-        case .draw, .drawPen, .drawHighlighter, .drawArrow, .drawRectangle, .drawSpotlight: .drawing
+        case .draw, .drawPen, .drawLine, .drawHighlighter, .drawArrow, .drawRectangle, .drawSpotlight: .drawing
         case .toggleDrawing, .undo, .clear: .actions
-        case .pickPen, .pickHighlighter, .pickArrow, .pickRectangle, .pickSpotlight: .whileDrawing
+        case .pickPen, .pickLine, .pickHighlighter, .pickArrow, .pickRectangle, .pickSpotlight: .whileDrawing
         }
     }
 
@@ -64,6 +64,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
     var tool: DrawingTool? {
         switch self {
         case .drawPen, .pickPen: .pen
+        case .drawLine, .pickLine: .line
         case .drawHighlighter, .pickHighlighter: .highlighter
         case .drawArrow, .pickArrow: .arrow
         case .drawRectangle, .pickRectangle: .rectangle
@@ -93,7 +94,7 @@ enum CommandID: String, CaseIterable, Codable, Sendable {
     }
 
     private static let letters: [DrawingTool: Int] = [
-        .pen: kVK_ANSI_P, .highlighter: kVK_ANSI_H, .arrow: kVK_ANSI_A,
+        .pen: kVK_ANSI_P, .line: kVK_ANSI_L, .highlighter: kVK_ANSI_H, .arrow: kVK_ANSI_A,
         .rectangle: kVK_ANSI_R, .spotlight: kVK_ANSI_S,
     ]
 }

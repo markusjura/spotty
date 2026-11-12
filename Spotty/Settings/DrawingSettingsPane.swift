@@ -102,6 +102,14 @@ struct DrawingSettingsPane: View {
                     ValueSlider("Nib edge", value: options.nibEdge, in: StrokeOptions.nibEdgeRange, unit: "%")
                 }
             }
+        case .line:
+            styleRow("Angle", tool, drawing.lineAngle)
+            colorRow(tool)
+            widthRow(tool)
+            fadeRow(tool)
+            option("Tolerance", note: "Max drift before a corner.") {
+                ValueSlider("Tolerance", value: drawing.lineTolerance, in: DrawingPreferences.straightenToleranceRange, unit: "pt")
+            }
         case .highlighter:
             styleRow("Tip", tool, drawing.highlighterTip)
             option("Color") { ColorPalettePicker("Color", selection: drawing.highlighterColor) }

@@ -87,6 +87,51 @@ final class MarkTests: XCTestCase {
         XCTAssertGreaterThan(live.paint.path.boundingBox.height, 20)
     }
 
+    /// A line tool mark dragged through `points`, checking after each one that finished legs stay put.
+    private func line(_ points: [CGPoint], angle: StraightenAngle = .axes) -> Mark {
+        var mark = Mark(tool: .line, at: points[0], style: ToolStyle(color: .annotationRed, width: 4, straightenTolerance: 12, straightenAngle: angle))
+        var finished: [CGPoint] = []
+        for point in points.dropFirst() {
+            mark.add(point)
+            let corners = mark.legs?.corners ?? []
+            XCTAssertEqual(Array(corners.prefix(finished.count)), finished, "A finished leg never moves")
+            finished = corners
+        }
+        return mark
+    }
+
+    func testLineStrokesTurnLevelCornersAsTheyAreDrawn() {
+        // Across with a wobble, round a corner, then down.
+        let across: [CGPoint] = (0...50).map { index in
+            let x = Double(index)
+            return CGPoint(x: 100 + x * 4, y: 100 + sin(x / 3) * 4)
+        }
+        let down: [CGPoint] = (1...40).map { index in
+            let y = Double(index)
+            return CGPoint(x: 306 + sin(y / 3) * 3, y: 110 + y * 4)
+        }
+        let mark = line(across + [CGPoint(x: 302, y: 104), CGPoint(x: 305, y: 110)] + down)
+        XCTAssertEqual(mark.legs?.points, [CGPoint(x: 100, y: 100), CGPoint(x: 302, y: 100), CGPoint(x: 302, y: 270)],
+                       "The corner is where the first leg was last drawn, as the stroke turned")
+
+        let unsteady = [CGPoint.zero, CGPoint(x: 3, y: 1), CGPoint(x: 6, y: 2)] + (1...20).map { CGPoint(x: 6, y: Double($0) * 10) }
+        XCTAssertEqual(line(unsteady).legs?.points, [.zero, CGPoint(x: 0, y: 200)], "A sideways start turns into the leg without a stub")
+        let wavering = [CGPoint.zero, CGPoint(x: 13, y: 0), CGPoint(x: 0, y: 6), CGPoint(x: 0, y: 30)]
+        XCTAssertEqual(line(wavering).legs?.points, [.zero, CGPoint(x: 0, y: 30)], "A sample back near the start doesn't turn a corner")
+        let flick = [CGPoint(x: 0, y: 40), .zero, CGPoint(x: 150, y: 0), CGPoint(x: 150, y: 60)]
+        XCTAssertEqual(line(flick).legs?.points, flick, "A fast flick round corners, with few points, still turns each one")
+    }
+
+    func testAnyAngleLinesKeepTheirAngleUntilTheStrokeTurns() {
+        let up = (0...20).map { CGPoint(x: Double($0) * 5, y: Double($0) * 5) }
+        let back = (1...20).map { CGPoint(x: 100 + Double($0) * 5, y: 100 - Double($0) * 5) }
+        let points = line(up + back, angle: .any).legs?.points ?? []
+        XCTAssertEqual(points.count, 3)
+        XCTAssertEqual(points[1].x, 105, accuracy: 0.001, "The first leg ends where it was last drawn, just past the turn")
+        XCTAssertEqual(points[1].y, 95, accuracy: 0.001)
+        XCTAssertEqual(points[2], CGPoint(x: 200, y: 0))
+    }
+
     func testCurvedArrowsBendTowardTheDrag() {
         let curved = ToolStyle(color: .annotationRed, width: 4, arrow: .curved)
         let start = CGPoint.zero, end = CGPoint(x: 100, y: 0)

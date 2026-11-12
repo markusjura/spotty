@@ -88,6 +88,9 @@ enum ToolSample {
         switch tool {
         case .pen:
             return mark(tool, style, stride(from: 15.0, through: 175, by: 4).map { CGPoint(x: $0, y: 27 + 12 * sin($0 / 22)) })
+        case .line:
+            // Down the left of the text, then along under it.
+            return mark(tool, style, [CGPoint(x: 18, y: 46), CGPoint(x: 18, y: 6), CGPoint(x: 175, y: 6)])
         case .highlighter:
             // A slightly wavering stroke, which straightens when the highlighter straightens strokes.
             return mark(tool, style, stride(from: 15.0, through: 140, by: 5).map { CGPoint(x: $0, y: 25 + 2 * sin($0 / 9)) })
@@ -108,8 +111,17 @@ enum ToolSample {
             // A thin line, except the calligraphy nib, which needs some width to show its angle.
             style.width = style.stroke == .calligraphy ? 3.4 : 2
             return mark(tool, style, stride(from: 3.0, through: 31, by: 1).map { CGPoint(x: $0, y: 9 + 5 * sin(($0 - 3) / 4.5)) })
+        case .line:
+            style.width = 2
+            // Corners show at glyph size.
+            style.straightenTolerance = 1
+            // An L, except the any angle choice, which zigzags.
+            return mark(tool, style, style.straightenAngle == .any
+                        ? [CGPoint(x: 4, y: 4), CGPoint(x: 14, y: 14), CGPoint(x: 21, y: 4), CGPoint(x: 30, y: 14)]
+                        : [CGPoint(x: 9, y: 15), CGPoint(x: 9, y: 4), CGPoint(x: 26, y: 4)])
         case .highlighter:
             style.width = 8
+            style.color = style.color.withAlpha(0.45)
             // Level, except the any angle choice, which slants.
             return mark(tool, style, style.straightenAngle == .any
                         ? [CGPoint(x: 9, y: 5), CGPoint(x: 25, y: 13)] : [CGPoint(x: 8, y: 9), CGPoint(x: 26, y: 9)])
@@ -146,8 +158,7 @@ extension HighlighterTip: StyleChoice {
         switch self { case .round: "Round tip"; case .flat: "Flat tip" }
     }
     func sampleStyle(_ base: ToolStyle) -> ToolStyle {
-        var style = base; style.hasFlatTips = self == .flat; style.straightenAngle = .axes
-        style.color = style.color.withAlpha(0.45); return style
+        var style = base; style.hasFlatTips = self == .flat; style.straightenAngle = .axes; return style
     }
 }
 
@@ -156,7 +167,7 @@ extension StraightenAngle: StyleChoice {
         switch self { case .axes: "Horizontal or vertical"; case .any: "Any angle" }
     }
     func sampleStyle(_ base: ToolStyle) -> ToolStyle {
-        var style = base; style.straightenAngle = self; style.color = style.color.withAlpha(0.45); return style
+        var style = base; style.straightenAngle = self; return style
     }
 }
 

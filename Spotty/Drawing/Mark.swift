@@ -11,12 +11,15 @@ struct Mark: Equatable, Sendable {
     let style: ToolStyle
     /// Shift: straight freehand lines, 45° arrows, and squares.
     var isConstrained = false
+    /// Line tool strokes only.
+    private(set) var legs: LineLegs?
 
     init(tool: DrawingTool, at point: CGPoint, style: ToolStyle, time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         self.tool = tool
         points = [point]
         times = [time]
         self.style = style
+        if tool == .line { legs = LineLegs(start: point, angle: style.straightenAngle, tolerance: style.straightenTolerance ?? 0) }
     }
 
     var start: CGPoint { points[0] }
@@ -28,7 +31,7 @@ struct Mark: Equatable, Sendable {
         guard isConstrained else { return end }
         switch tool {
         case .rectangle, .spotlight: return MarkGeometry.squared(from: start, to: end)
-        case .arrow, .pen, .highlighter: return MarkGeometry.snapped(from: start, to: end)
+        case .arrow, .pen, .line, .highlighter: return MarkGeometry.snapped(from: start, to: end)
         }
     }
 
@@ -38,6 +41,7 @@ struct Mark: Equatable, Sendable {
     }
 
     mutating func add(_ point: CGPoint, at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        legs?.add(point)
         guard keepsPath else { points = [start, point]; times = [times[0], time]; return }
         // Skip sub-point jitter; it only adds path segments.
         if let last = points.last, hypot(point.x - last.x, point.y - last.y) < 1 { return }
@@ -49,6 +53,7 @@ struct Mark: Equatable, Sendable {
     var isEmpty: Bool {
         switch tool {
         case .pen, .highlighter: return points.count < 2
+        case .line: return !(legs?.points ?? points).contains { hypot($0.x - start.x, $0.y - start.y) >= 4 }
         case .arrow: return hypot(end.x - start.x, end.y - start.y) < 8
         case .rectangle, .spotlight:
             let rect = MarkGeometry.rect(start, end)
@@ -103,6 +108,10 @@ struct Mark: Equatable, Sendable {
             }
             if tool == .highlighter { return Paint(path: path, cap: style.hasFlatTips ? .butt : .round) }
             return Paint(path: path, dash: style.stroke == .dashed ? options.dashLengths(width: width) : [])
+        case .line:
+            let path = CGMutablePath()
+            path.addLines(between: isConstrained ? [start, end] : legs?.points ?? points)
+            return Paint(path: path)
         case .arrow:
             let bend = style.arrow == .curved ? MarkGeometry.bend(from: start, to: end, along: points) : nil
             return Paint(path: MarkGeometry.arrow(from: start, to: end, width: width, style: style.arrow, bend: bend,

@@ -1,10 +1,11 @@
 /// The drawing tools, in toolbar and menu order.
 enum DrawingTool: String, Codable, CodingKeyRepresentable, CaseIterable, Sendable {
-    case pen, highlighter, arrow, rectangle, spotlight
+    case pen, line, highlighter, arrow, rectangle, spotlight
 
     var title: String {
         switch self {
         case .pen: "Pen"
+        case .line: "Line"
         case .highlighter: "Highlighter"
         case .arrow: "Arrow"
         case .rectangle: "Rectangle"
@@ -15,6 +16,7 @@ enum DrawingTool: String, Codable, CodingKeyRepresentable, CaseIterable, Sendabl
     var symbol: String {
         switch self {
         case .pen: "scribble"
+        case .line: "line.diagonal"
         case .highlighter: "highlighter"
         case .arrow: "arrow.up.right"
         case .rectangle: "rectangle"

@@ -63,3 +63,7 @@ Grant permissions to the installed `/Applications/Spotty.app`. Spotty Dev has it
 - Screen Recording, Input Monitoring, and every other permission are not needed. Spotty draws over the screen; it never reads it.
 
 Keeping the bundle ID and signing identity stable keeps the grant across updates.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -171,6 +171,11 @@ private final class ColorMenuTarget: NSObject {
         }
         let mouse = NSEvent.mouseLocation
         let toolbarBottom = NSApp.windows.first { $0.level == Chrome.toolbarLevel && $0.isVisible }?.frame.minY ?? mouse.y
+        // Menus open at the pop-up menu level, far below the overlay, so the overlay steps just
+        // under it while the menu is open.
+        let overlays = NSApp.windows.filter { $0.level == Chrome.overlayLevel }
+        for overlay in overlays { overlay.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue - 1) }
+        defer { for overlay in overlays { overlay.level = Chrome.overlayLevel } }
         // popUp blocks until the menu closes, which keeps `target` alive.
         menu.popUp(positioning: nil, at: NSPoint(x: mouse.x - 24, y: toolbarBottom - 4), in: nil)
     }
